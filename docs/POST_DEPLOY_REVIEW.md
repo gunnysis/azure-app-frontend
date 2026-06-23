@@ -6,7 +6,7 @@
 > **배포 커밋:** `fd752d4` — *운영 배포 준비: 정적 사이트 정리 + SWA 설정 추가*
 > **연계 문서:** [`DEPLOYMENT.md`](./DEPLOYMENT.md) (구현 설계서/운영 정보)
 > **SWA URL:** 🟢 라이브 검증 완료 → **https://thankful-desert-0cdb08500.7.azurestaticapps.net/**
-> **상태:** 🟢 **정적 사이트 배포 성공·URL/보안헤더 라이브 검증** / 🟢 **dev→프로덕션 오배포 사건 근본 해결·재발방지 적용**(§1-A) / 🔴 **백엔드 실연동 5계층 전부 차단**(§3, 2026-06-23 라이브 실측) — 현재 예측은 **전량 폴백**으로 동작
+> **상태:** 🟢 **정적 사이트 배포 성공·URL/보안헤더 라이브 검증** / 🟢 **dev→프로덕션 오배포 사건 근본 해결·재발방지 적용**(§1-A) / 🟢 **백엔드 실연동 5계층 어댑터로 해소·라이브 `source=live` 검증**(§3, 2026-06-23) — 예측이 **실제 ML 모델**로 동작
 
 이 문서는 2026-06-23 **실제 배포를 수행한 결과**와, 그 결과를 설계(`DEPLOYMENT.md`)·백엔드 코드(`../../azure-app-backend`)와 대조한 **구현 검토**를 한 곳에 정리한다. §3·§5는 **curl 라이브 실측 + 백엔드 소스 대조**로 사실 확인했다. 이후 작업은 §6(다음 작업 후보)을 근거로 지시받아 진행한다.
 
@@ -76,9 +76,17 @@
 
 ---
 
-## 3. 현재 한계 — 백엔드 실연동 5계층 전부 차단 (출시 게이트)
+## 3. 백엔드 실연동 5계층 차단 → ✅ 어댑터로 전부 해소 (2026-06-23)
 
-정적 사이트는 배포됐지만 **예측 기능은 동작하지 않는다.** 현재 예측은 전량 프론트 내부 폴백(`localMockPredict`)으로 렌더된다. 백엔드 소스(`../../azure-app-backend`)와 **라이브 curl**로 대조한 결과, 프론트↔백엔드 사이에 **독립적으로 각각 폴백을 유발하는 차단 지점이 5개** 있다(하나만 고쳐선 통하지 않음).
+> **해소 요약(라이브 검증):** 무키 어댑터 엔드포인트 `POST /api/v1/estimate`(`azure-app-backend` `app/api/v1/adapter.py`)를 추가해 5계층을 한 번에 해소했다. 프론트는 에어컨 습관 페이로드를 그대로 보내고, 어댑터가 8개 ML 피처를 합성(기상 평년값+THI+사용량 추정)해 실제 Azure ML을 호출한다.
+> - `curl POST /api/v1/estimate`(무키, Origin=SWA) → **200**, `{"predicted_kwh":152.03, …, "features_used":{8피처}}`
+> - OPTIONS 프리플라이트 → `Access-Control-Allow-Origin: <SWA>` (CORS_ORIGINS에 SWA 출처 등록)
+> - 프론트 production `script.js` → `/api/v1/estimate` 호출 확인, 브라우저 경로 fetch **200**(`source=live`)
+> - THI 라이브값(7월 25.3°C/76.2% → 74.982214)이 역산 공식과 일치, 6월 month_sin/cos(0/-1) 일치
+>
+> ⚠️ **잔여 한계:** `prev_year_usage`/`current_usage`는 추정치(프론트가 실측 사용량 미수집). 정확도 향상은 `API_CONTRACT.md` §6 참조. 아래 표는 해소 전 차단 기록(이력)이다.
+
+아래는 **해소 전** 라이브 실측 기록이다. 프론트↔백엔드 사이에 **독립적으로 각각 폴백을 유발하던 차단 지점이 5개** 있었다(하나만 고쳐선 통하지 않음).
 
 **5계층 차단 — 라이브 실측(2026-06-23)**
 
@@ -168,10 +176,10 @@ curl -s -D - -o /dev/null -X OPTIONS "$BE/api/v1/predict" \
 | **A** | `docs/` 검토분 커밋 | — | push 시 무해한 .md 재배포 1회 |
 | ~~B~~ | ✅ `actions/checkout@v3 → @v5` 상향(F-1) — **완료** | — | @v4 무효 확인 후 @v5 적용·커밋 완료 |
 | **C** | `DEPLOYMENT.md` §2.1에 검증된 SWA 호스트네임 기입 + 브라우저 이미지 export 런타임 검증(F-2) | — | 호스트네임 확보됨 → 즉시 가능 |
-| **D0** | **계약 확정** — 어댑터안(§3-A) 채택 여부 결정, `API_CONTRACT.md`에 단일 계약 명문화 | — | 이후 D1·D2의 기준. **출시 게이트 핵심** |
-| **D1** | **백엔드** — 프론트용 어댑터 엔드포인트(`/api/v1/predict-simple` 등) 추가: 사용자 입력→ML 피처 변환, `{predicted_kwh, estimated_bill}` 응답 + **CORS에 SWA Origin 등록**(`cors_origins`) + OPTIONS 500 수정 | D0 | `azure-app-backend` 작업 |
-| **D2** | **프론트** — `PREDICT_ENDPOINT` 경로 정합 + `X-API-Key` 전송 방식 결정(공개 키 노출 위험 → CORS 화이트리스트 권장, `DEPLOYMENT.md` §5 보안주의) + `buildPayload()`/`normalizePredictionResponse()` 계약 동기화 | D0·D1 | `script.js`·`API_CONTRACT.md` |
-| **D3** | **검증** — §5 스모크 4종 + 브라우저 E2E(200·폴백 경고 0) | D1·D2 | 출시 판정 |
+| ~~D0~~ | ✅ **계약 확정** — 어댑터안 채택, `API_CONTRACT.md`를 `/api/v1/estimate` 단일 계약으로 갱신 | — | **완료** |
+| ~~D1~~ | ✅ **백엔드** — 무키 어댑터 `/api/v1/estimate` + 피처빌더(기상 평년값·THI·사용량 추정) + CORS_ORIGINS에 SWA 출처 등록. pytest 39개 통과, 운영 배포 `RuntimeSuccessful` | D0 | **완료** |
+| ~~D2~~ | ✅ **프론트** — `PREDICT_ENDPOINT` → `/api/v1/estimate`(무키, CORS 화이트리스트로 보호). payload·응답 처리 호환 | D0·D1 | **완료**(PR #2) |
+| ~~D3~~ | ✅ **검증** — `/api/v1/estimate` 라이브 200(무키)+CORS, 프론트 production이 어댑터 호출·`source=live` | D1·D2 | **완료** |
 
 ---
 
