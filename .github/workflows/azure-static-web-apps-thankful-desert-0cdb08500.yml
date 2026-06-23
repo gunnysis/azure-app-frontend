@@ -30,7 +30,8 @@ jobs:
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "/" # App source code path
           api_location: "" # Api source code path - optional
-          output_location: "/" # Built app content directory - optional
+          output_location: "" # 빌드 산출물 없음(빌드리스) → 빈 문자열
+          skip_app_build: true # package.json 없는 순수 정적 → Oryx 빌드 건너뜀(아티팩트 위치 오류 예방)
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:

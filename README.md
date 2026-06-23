@@ -19,12 +19,11 @@ HTML 파일을 직접 열어도 화면 확인은 가능합니다.
 
 ## 화면 흐름
 
-1. 서비스 시작
-2. 원룸 평수 입력
-3. 사용 항목 선택
+1. 인트로(찌릿 스플래시)
+2. 시작 안내
+3. 하루 에어컨 사용 시간 · 타입 · 소비전력 입력
 4. 분석 로딩
-5. 예상 사용량과 예상 요금 확인
-6. 절약 리포트 확인
+5. 리포트(예상 사용량·요금 범위·절약 미션)
 
 ## 백엔드 연동
 
@@ -34,18 +33,17 @@ HTML 파일을 직접 열어도 화면 확인은 가능합니다.
 POST http://127.0.0.1:8000/predict
 ```
 
-요청 예시:
+요청 예시(잠정 — 백엔드/ML 스펙 확정 시 변경될 수 있음):
 
 ```json
 {
-  "area_m2": 29.8,
-  "pyeong": 9,
   "region": "mapo",
   "housing_type": "oneroom",
   "household_size": 1,
   "has_aircon": true,
-  "heating_type": "electric",
-  "has_induction": true
+  "aircon_hours_per_day": 4,
+  "aircon_power_w": 650,
+  "aircon_type": "inverter"
 }
 ```
 

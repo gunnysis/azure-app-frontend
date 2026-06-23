@@ -1,0 +1,58 @@
+<svg width="960" height="300" viewBox="0 0 960 300" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">찌릿 로고</title>
+  <desc id="desc">굵은 파란 찌릿 워드마크와 노란 번개, 찌릿이 캐릭터가 함께 있는 로고</desc>
+  <defs>
+    <linearGradient id="blueText" x1="118" y1="82" x2="555" y2="216" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="0.55" stop-color="#1554D1"/>
+      <stop offset="1" stop-color="#0F3DB6"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="556" y1="40" x2="634" y2="234" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE873"/>
+      <stop offset="0.5" stop-color="#FFC83D"/>
+      <stop offset="1" stop-color="#FF9F1C"/>
+    </linearGradient>
+    <linearGradient id="body" x1="698" y1="142" x2="778" y2="258" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DD3FC"/>
+      <stop offset="0.4" stop-color="#2EA7F2"/>
+      <stop offset="1" stop-color="#0F6BD8"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="694" y1="72" x2="788" y2="166" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE873"/>
+      <stop offset="0.52" stop-color="#FFC83D"/>
+      <stop offset="1" stop-color="#FF9F1C"/>
+    </linearGradient>
+    <filter id="logoShadow" x="66" y="50" width="612" height="188" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="8" flood-color="#0F3DB6" flood-opacity="0.14"/>
+    </filter>
+    <filter id="charShadow" x="645" y="48" width="218" height="228" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#063977" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <text x="86" y="183" fill="#2563EB" font-family="Moneygraphy Rounded, Apple SD Gothic Neo, Malgun Gothic, sans-serif" font-size="132" font-style="italic" font-weight="900" letter-spacing="-7">찌릿</text>
+  <g filter="url(#logoShadow)">
+    <path d="M563 50L520 145H577L545 241L653 116H596L627 50H563Z" fill="url(#bolt)"/>
+    <path d="M563 50L520 145H577L545 241L653 116H596L627 50H563Z" stroke="#FFE88A" stroke-opacity="0.75" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+  <g filter="url(#charShadow)">
+    <path d="M672 180C649 188 641 212 655 226C667 238 686 229 692 212L672 180Z" fill="#1B8FE8"/>
+    <path d="M794 178C817 188 826 211 813 225C801 238 781 229 775 211L794 178Z" fill="#1077D8"/>
+    <path d="M688 218C679 232 678 248 688 254C698 261 712 248 714 230L688 218Z" fill="#0F6BD8"/>
+    <path d="M776 218C787 232 789 247 779 255C769 262 754 248 752 230L776 218Z" fill="#0B5FC5"/>
+    <path d="M653 164C666 132 692 112 731 111C776 110 809 137 817 179C830 231 792 263 734 263C678 263 639 222 653 164Z" fill="url(#body)"/>
+    <path d="M654 163C665 131 691 111 727 101L704 77L748 94L740 52L774 99L819 87L787 128L824 145L779 151C762 128 735 116 705 121C681 125 663 140 654 163Z" fill="url(#hair)"/>
+    <path d="M654 163C665 131 691 111 727 101L704 77L748 94L740 52L774 99L819 87L787 128L824 145L779 151" stroke="#FFE88A" stroke-opacity="0.55" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M694 166C687 159 678 157 670 158" stroke="#10213F" stroke-width="6" stroke-linecap="round"/>
+    <path d="M755 166C763 158 772 156 781 157" stroke="#10213F" stroke-width="6" stroke-linecap="round"/>
+    <ellipse cx="682" cy="185" rx="10" ry="15" fill="#071D39"/>
+    <ellipse cx="768" cy="185" rx="10" ry="15" fill="#071D39"/>
+    <ellipse cx="686" cy="179" rx="4" ry="6" fill="white"/>
+    <ellipse cx="772" cy="179" rx="4" ry="6" fill="white"/>
+    <circle cx="665" cy="205" r="8" fill="#FFA7B8"/>
+    <circle cx="787" cy="205" r="8" fill="#FFA7B8"/>
+    <path d="M707 214C718 224 736 224 747 214" stroke="#10213F" stroke-width="8" stroke-linecap="round"/>
+    <path d="M727 198L717 221H731L725 240L749 208H735L742 198H727Z" fill="#FFC83D"/>
+  </g>
+  <text x="93" y="250" fill="#101317" font-family="Moneygraphy Rounded, Apple SD Gothic Neo, Malgun Gothic, sans-serif" font-size="34" font-weight="900">전기세 찌릿하기 전</text>
+  <text x="337" y="250" fill="#2563EB" font-family="Moneygraphy Rounded, Apple SD Gothic Neo, Malgun Gothic, sans-serif" font-size="34" font-weight="900">미리 보는 AI 요금 리포트</text>
+</svg>

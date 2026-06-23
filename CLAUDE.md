@@ -1,0 +1,53 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+> Symbols (function/const names) are the stable anchors — line numbers drift, so grep by name.
+
+## What this is
+
+Frontend MVP for an electricity-bill prediction service branded **"찌릿" (jjirit)**, scoped to **마포구 원룸 1인 가구** (Mapo one-room single-person households). Pure vanilla HTML/CSS/JS — **no framework, no build step, no package manager, no test suite, no dependencies**. UI copy and most code comments are in Korean.
+
+## Run / develop
+
+```bash
+# Serves the repo root over http://127.0.0.1:4202 via python -m http.server
+start_frontend_server.bat        # Windows
+python -m http.server 4202 --bind 127.0.0.1   # equivalent, any OS
+```
+
+Then open `http://127.0.0.1:4202/index.html`. Opening `index.html` directly via `file://` also renders, but `fetch` to a backend won't work from `file://`.
+
+There is no lint/build/test tooling, and no JS runtime in this environment (`node` is absent — syntax-check by other means, e.g. a brace-balance scan or a browser). Edits take effect on browser refresh. Static asset links carry a `?v=...` cache-busting query (e.g. `styles.css?v=20260623-brand-svg`) — bump it when you need clients to re-fetch. For debugging, the app exposes `window.singleEnergyFrontend` (`buildPayload()`, `calculateElectricBill()`, `getPredictEndpoint()`) in the browser console.
+
+## Architecture
+
+Everything is at the repo root: `index.html` (markup for all screens), `styles.css`, and `script.js` (all logic, ~1380 lines, no modules). `config.js` is a one-line config seam loaded before `script.js`. Brand SVGs live in `assets/brand/` (`jjirit-icon.svg`, `jjirit-logo.svg`); display fonts (Moneygraphy) in `assets/fonts/`.
+
+**Screen wizard.** The UI is a single phone-frame of `<article class="screen">` elements driven by the `screens` array (near the top of `script.js`): `splash → start → airconTime → loading → report` (5 steps; progress shows `n/5`). Navigation is a hand-rolled state machine — `goTo(index)` / `goNext()` toggle the `.active` class and `body[data-current-screen]`. `state` holds the wizard index plus the user's aircon inputs. All DOM references are cached up front in the `els` object. The final `report` screen carries all result figures — there is no separate result screen, and `renderPrediction()` writes only to report/summary elements.
+
+**Input model (aircon-centric).** `buildPayload()` is the single source of the request body. The user supplies: **daily aircon hours** (`aircon_hours_per_day`, 0–24, via slider+number input with pointer/touch drag), **aircon type** (`aircon_type`: `fixed`정속형 / `inverter`인버터 / `unknown`잘모름 / `none`미사용), and optional **power draw** (`aircon_power_w`; empty → `null` = use average; 0 hours → `0`/`none`). `region`("mapo"), `housing_type`("oneroom"), `household_size`(1) are **hardcoded** for this MVP. Setting hours to 0 disables the type/power inputs (`syncAirconPowerState`).
+
+**Prediction flow with mandatory fallback.** This is the core design point. `requestPrediction()` POSTs the payload to `PREDICT_ENDPOINT` with an **8000ms `AbortController` timeout**. **On any failure (timeout, non-2xx, network), it silently falls back to `localMockPredict()`** — a client-side heuristic keyed on hours × power × type-multiplier — so the app always renders a result. Each result carries a `source` tag (`"live"` / `"sample"` / `"fallback"`). A rendered screen does NOT mean the API succeeded — check the console for the `[single-energy] Falling back...` warning and the `source` value.
+
+**Response contract is intentionally minimal.** `normalizePredictionResponse()` requires only `predicted_kwh`; if `estimated_bill` is absent it is computed locally. So the frontend tolerates a partial backend.
+
+**Money is shown as ranges, not point values.** Bills render as `X ~ Y원` via `formatBillRange()` / `formatWonRange()` with `BILL_RANGE_MARGIN` (±5,000, rounded to the nearest 1,000) — this deliberately signals prediction uncertainty. Don't "fix" the UI to a single number without intent.
+
+**Local bill math.** `calculateElectricBill()` is a hardcoded Korean progressive tariff (tiers at 200/400 kWh + climate/fuel/basic + VAT + fund) used both for the fallback and to fill a missing `estimated_bill`. `BASELINE_KWH = 165` is the Mapo single-person benchmark every "vs 기준" figure compares against.
+
+**Report image export.** `createReportImageBlob()` renders the share card to an image with a three-tier fallback: Canvas API → `html2canvas` (only if `window.html2canvas` is present — it is NOT bundled) → inline SVG (drawn via `blob:` URLs). Sharing uses the Web Share API with a download fallback. (CSP must allow `img-src blob:` — see `docs/DEPLOYMENT.md`.)
+
+## API integration
+
+The API base URL is the single environment seam: `window.SINGLE_ENERGY_API_BASE_URL` in `config.js` (defaults to `http://127.0.0.1:8000`). The frontend calls `POST {base}/predict`. Full request/response shape is in `API_CONTRACT.md`.
+
+Request body (from `buildPayload()`): `region`, `housing_type`, `household_size`, `has_aircon`, `aircon_hours_per_day`, `aircon_power_w` (number | `null` | `0`), `aircon_type`. Response the frontend depends on: `predicted_kwh` (required) + `estimated_bill` (optional).
+
+> This payload is **provisional** — the backend/ML input spec is not finalized (see `docs/DEPLOYMENT.md` §5.2). If fields change, edit `buildPayload()` and keep `API_CONTRACT.md` + the backend schema in sync.
+
+**Known mismatches with the production backend (verify before integration):** the frontend calls `/predict` while the deployed App Service backend exposes `/api/v1/predict`, and the backend expects an `X-API-Key` header the frontend does not send. See `docs/DEPLOYMENT.md` §5 for the reconciliation list.
+
+## Deployment
+
+Target is **Azure Static Web Apps Standard** (pure static, no build). Full operational runbook — resource info, GitHub-connection prerequisite, `staticwebapp.config.json` (incl. CSP), CORS, and the backend-contract mismatches — is in `docs/DEPLOYMENT.md`. Set the production backend HTTPS URL in `config.js` before deploying.

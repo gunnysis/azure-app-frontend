@@ -24,18 +24,19 @@ window.SINGLE_ENERGY_API_BASE_URL = "https://서비스이름.azurewebsites.net";
 
 ## 2. 요청 JSON
 
-프론트는 사용자가 입력한 값을 아래 형태로 보냅니다.
+> ⚠️ **잠정(provisional) 계약** — 백엔드/ML 입력 스펙 확정 시 필드가 변경될 수 있습니다. 변경 시 프론트 `buildPayload()`와 이 문서, 백엔드 스키마를 함께 갱신하세요.
+
+프론트는 사용자가 입력한 값을 아래 형태로 보냅니다(`buildPayload()` 생성).
 
 ```json
 {
-  "area_m2": 29.8,
-  "pyeong": 9,
   "region": "mapo",
   "housing_type": "oneroom",
   "household_size": 1,
   "has_aircon": true,
-  "heating_type": "electric",
-  "has_induction": true
+  "aircon_hours_per_day": 4,
+  "aircon_power_w": 650,
+  "aircon_type": "inverter"
 }
 ```
 
@@ -43,14 +44,13 @@ window.SINGLE_ENERGY_API_BASE_URL = "https://서비스이름.azurewebsites.net";
 
 | 필드 | 타입 | 예시 | 설명 |
 | --- | --- | --- | --- |
-| `area_m2` | number | `29.8` | 프론트가 평수를 제곱미터로 변환한 값 |
-| `pyeong` | number | `9` | 사용자가 입력한 평수 |
 | `region` | string | `"mapo"` | MVP에서는 마포구로 고정 |
 | `housing_type` | string | `"oneroom"` | MVP에서는 원룸으로 고정 |
 | `household_size` | number | `1` | MVP에서는 1인 가구로 고정 |
-| `has_aircon` | boolean | `true` | 에어컨 보유 여부 |
-| `heating_type` | string | `"electric"` | `"electric"`, `"gas"`, `"district"` 중 하나 |
-| `has_induction` | boolean | `true` | 인덕션 사용 여부 |
+| `has_aircon` | boolean | `true` | 에어컨 사용 여부(하루 사용 시간 > 0 이면 `true`) |
+| `aircon_hours_per_day` | number | `4` | 하루 에어컨 사용 시간(0~24, 0.5 단위) |
+| `aircon_power_w` | number \| null \| 0 | `650` | 소비전력(W). **비우면 `null`**(평균값 사용), 미사용(0시간)이면 `0` |
+| `aircon_type` | string | `"inverter"` | `"fixed"`(정속형) / `"inverter"`(인버터) / `"unknown"`(잘 모름) / `"none"`(미사용) 중 하나 |
 
 ## 4. 필수 응답 JSON
 
@@ -95,14 +95,13 @@ app.add_middleware(
 )
 
 class PredictRequest(BaseModel):
-    area_m2: float
-    pyeong: float
     region: str
     housing_type: str
     household_size: int
     has_aircon: bool
-    heating_type: str
-    has_induction: bool
+    aircon_hours_per_day: float
+    aircon_power_w: int | None = None  # 비우면 평균값, 미사용이면 0
+    aircon_type: str  # fixed | inverter | unknown | none
 
 @app.post("/predict")
 def predict(data: PredictRequest):

@@ -1,0 +1,63 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">찌릿이 앱 아이콘</title>
+  <desc id="desc">노란 번개 머리와 파란 몸통을 가진 찌릿이 캐릭터 앱 아이콘</desc>
+  <defs>
+    <linearGradient id="appBg" x1="82" y1="68" x2="422" y2="450" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#60A5FA"/>
+      <stop offset="0.5" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="body" x1="190" y1="208" x2="315" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7DD3FC"/>
+      <stop offset="0.36" stop-color="#2EA7F2"/>
+      <stop offset="1" stop-color="#0F6BD8"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="198" y1="80" x2="329" y2="263" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFE873"/>
+      <stop offset="0.48" stop-color="#FFC83D"/>
+      <stop offset="1" stop-color="#FF9F1C"/>
+    </linearGradient>
+    <radialGradient id="bodyShine" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(220 232) rotate(52) scale(132 120)">
+      <stop stop-color="white" stop-opacity="0.62"/>
+      <stop offset="0.56" stop-color="white" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="hairShine" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(220 128) rotate(55) scale(100 80)">
+      <stop stop-color="white" stop-opacity="0.7"/>
+      <stop offset="0.7" stop-color="white" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="cardShadow" x="52" y="58" width="408" height="408" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="28" stdDeviation="32" flood-color="#0F3B8D" flood-opacity="0.25"/>
+    </filter>
+    <filter id="characterShadow" x="111" y="64" width="306" height="366" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="#063977" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+  <g filter="url(#cardShadow)">
+    <rect x="72" y="72" width="368" height="368" rx="102" fill="url(#appBg)"/>
+    <rect x="90" y="90" width="332" height="332" rx="88" stroke="white" stroke-opacity="0.24" stroke-width="6"/>
+    <circle cx="167" cy="146" r="54" fill="white" fill-opacity="0.15"/>
+  </g>
+  <g filter="url(#characterShadow)">
+    <path d="M176 300C139 315 125 352 148 373C166 389 196 377 205 352L176 300Z" fill="#1B8FE8"/>
+    <path d="M336 296C372 310 389 346 369 369C351 389 318 378 309 350L336 296Z" fill="#1077D8"/>
+    <path d="M194 363C179 383 176 407 191 417C207 428 229 409 233 381L194 363Z" fill="#0F6BD8"/>
+    <path d="M314 363C331 382 334 406 320 417C304 430 281 409 278 382L314 363Z" fill="#0B5FC5"/>
+    <path d="M138 269C162 230 196 203 250 200C310 196 357 232 371 287C390 363 339 410 256 410C173 410 117 353 138 269Z" fill="url(#body)"/>
+    <path d="M138 269C162 230 196 203 250 200C310 196 357 232 371 287C390 363 339 410 256 410C173 410 117 353 138 269Z" fill="url(#bodyShine)"/>
+    <path d="M143 267C158 224 191 194 240 180L207 140L280 169L266 95L319 174L387 153L339 220L394 246L326 256C303 222 264 202 220 209C185 214 159 235 143 267Z" fill="url(#hair)"/>
+    <path d="M143 267C158 224 191 194 240 180L207 140L280 169L266 95L319 174L387 153L339 220L394 246L326 256C303 222 264 202 220 209C185 214 159 235 143 267Z" fill="url(#hairShine)"/>
+    <path d="M143 267C158 224 191 194 240 180L207 140L280 169L266 95L319 174L387 153L339 220L394 246L326 256" stroke="#FFE88A" stroke-opacity="0.55" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M208 270C197 259 184 255 171 256" stroke="#10213F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M297 270C309 258 322 254 335 255" stroke="#10213F" stroke-width="10" stroke-linecap="round"/>
+    <ellipse cx="190" cy="301" rx="16" ry="24" fill="#071D39"/>
+    <ellipse cx="318" cy="301" rx="16" ry="24" fill="#071D39"/>
+    <ellipse cx="196" cy="291" rx="6" ry="9" fill="white"/>
+    <ellipse cx="324" cy="291" rx="6" ry="9" fill="white"/>
+    <circle cx="165" cy="330" r="13" fill="#FFA7B8"/>
+    <circle cx="343" cy="330" r="13" fill="#FFA7B8"/>
+    <path d="M226 344C244 361 271 361 288 344" stroke="#10213F" stroke-width="12" stroke-linecap="round"/>
+    <path d="M251 322L235 358H256L247 386L281 338H260L269 322H251Z" fill="#FFC83D"/>
+  </g>
+</svg>
