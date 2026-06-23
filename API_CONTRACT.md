@@ -10,14 +10,6 @@
 POST {API_BASE_URL}/api/v1/estimate     # 무키(API Key 불필요)
 ```
 
-Cloudflare 배포본(`*.workers.dev`, `*.pages.dev`)에서는 브라우저 CORS를 피하기 위해 `API_BASE_URL`을 현재 사이트 주소로 잡습니다.
-
-```text
-프론트 → https://single-energy-predict.jaeheeejeon.workers.dev/api/v1/estimate
-      → Cloudflare Functions 프록시
-      → Azure 백엔드 /api/v1/estimate
-```
-
 > 이 엔드포인트는 정적 프론트가 직접 호출하므로 **API Key를 요구하지 않습니다**(브라우저에 키를 둘 수 없음). 대신 백엔드 CORS 출처 화이트리스트 + rate limit으로 보호합니다. 8개 원시 피처를 받는 `POST /api/v1/predict`는 별도로 **`X-API-Key` 필수**(서버-서버용)입니다.
 
 프론트 API 베이스 주소는 `config.js`에서 관리합니다(호스트 인지 가드 — 운영 호스트에선 운영 백엔드 강제, 로컬에선 `http://127.0.0.1:8000`).
