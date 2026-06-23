@@ -10,7 +10,7 @@ const AIRCON_TYPE_LABELS = {
 const API_BASE_URL = (
   window.SINGLE_ENERGY_API_BASE_URL || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
-const PREDICT_ENDPOINT = `${API_BASE_URL}/predict`;
+const PREDICT_ENDPOINT = `${API_BASE_URL}/api/v1/estimate`;
 const CHAT_ENDPOINT = window.SINGLE_ENERGY_CHAT_API_URL || "/api/chat";
 
 const screens = [

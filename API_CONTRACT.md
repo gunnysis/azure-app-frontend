@@ -4,27 +4,21 @@
 
 ## 1. 현재 프론트가 호출하는 주소
 
-로컬 개발 기본값:
+프론트는 **어댑터 엔드포인트**를 호출합니다(에어컨 습관 → 예측). 운영:
 
 ```text
-POST http://127.0.0.1:8000/predict
+POST {API_BASE_URL}/api/v1/estimate     # 무키(API Key 불필요)
 ```
 
-프론트 API 주소는 `frontend/config.js`에서 바꿀 수 있습니다.
+> 이 엔드포인트는 정적 프론트가 직접 호출하므로 **API Key를 요구하지 않습니다**(브라우저에 키를 둘 수 없음). 대신 백엔드 CORS 출처 화이트리스트 + rate limit으로 보호합니다. 8개 원시 피처를 받는 `POST /api/v1/predict`는 별도로 **`X-API-Key` 필수**(서버-서버용)입니다.
 
-```js
-window.SINGLE_ENERGY_API_BASE_URL = "http://127.0.0.1:8000";
-```
-
-Azure App Service 배포 후에는 예를 들어 아래처럼 바꾸면 됩니다.
-
-```js
-window.SINGLE_ENERGY_API_BASE_URL = "https://서비스이름.azurewebsites.net";
-```
+프론트 API 베이스 주소는 `config.js`에서 관리합니다(호스트 인지 가드 — 운영 호스트에선 운영 백엔드 강제, 로컬에선 `http://127.0.0.1:8000`).
 
 ## 2. 요청 JSON
 
-프론트는 사용자가 입력한 값을 아래 형태로 보냅니다.
+> ⚠️ **잠정(provisional) 계약** — 백엔드/ML 입력 스펙 확정 시 필드가 변경될 수 있습니다. 변경 시 프론트 `buildPayload()`와 이 문서, 백엔드 스키마를 함께 갱신하세요.
+
+프론트는 사용자가 입력한 값을 아래 형태로 보냅니다(`buildPayload()` 생성).
 
 ```json
 {
@@ -33,7 +27,8 @@ window.SINGLE_ENERGY_API_BASE_URL = "https://서비스이름.azurewebsites.net";
   "household_size": 1,
   "has_aircon": true,
   "aircon_hours_per_day": 4,
-  "aircon_power_w": 650
+  "aircon_power_w": 650,
+  "aircon_type": "inverter"
 }
 ```
 
@@ -44,150 +39,54 @@ window.SINGLE_ENERGY_API_BASE_URL = "https://서비스이름.azurewebsites.net";
 | `region` | string | `"mapo"` | MVP에서는 마포구로 고정 |
 | `housing_type` | string | `"oneroom"` | MVP에서는 원룸으로 고정 |
 | `household_size` | number | `1` | MVP에서는 1인 가구로 고정 |
-| `has_aircon` | boolean | `true` | 프론트가 `aircon_hours_per_day > 0`이면 자동으로 `true`, 0이면 `false` 처리 |
-| `aircon_hours_per_day` | number | `4` | 하루 평균 에어컨 사용 시간. 0~24시간, 0.5시간 단위 |
-| `aircon_power_w` | number \| null | `650` | 선택 입력. 사용자가 모르면 `null`, 에어컨 사용 시간이 0이면 무조건 `null`로 전달 |
+| `has_aircon` | boolean | `true` | 에어컨 사용 여부(하루 사용 시간 > 0 이면 `true`) |
+| `aircon_hours_per_day` | number | `4` | 하루 에어컨 사용 시간(0~24, 0.5 단위) |
+| `aircon_power_w` | number \| null \| 0 | `650` | 소비전력(W). **비우면 `null`**(평균값 사용), 미사용(0시간)이면 `0` |
+| `aircon_type` | string | `"inverter"` | `"fixed"`(정속형) / `"inverter"`(인버터) / `"unknown"`(잘 모름) / `"none"`(미사용) 중 하나 |
+| `month` | number \| 없음 | `7` | (선택) 예측 대상 월 1~12. **생략 시 서버 현재 월(KST)** 사용 |
 
-현재 프론트에서 사용자가 직접 입력하는 값은 아래 2개입니다.
-
-- 하루 평균 에어컨 사용 시간
-- 에어컨 소비전력: 선택 입력
-
-`region`, `housing_type`, `household_size`는 서비스 타깃이 “마포구 원룸 1인 가구”라서 프론트에서 고정값으로 보냅니다. `has_aircon`은 별도 질문을 받지 않고, 에어컨 사용 시간이 0시간보다 크면 자동으로 `true`가 됩니다. 0시간이면 에어컨 없음으로 간주하고 `aircon_power_w`도 `null`로 보냅니다.
-
-프론트에서 하는 정제:
-
-- 입력값을 숫자로 변환
-- 에어컨 사용 시간을 0~24시간 범위로 제한
-- 에어컨 소비전력이 비어 있거나, 에어컨 사용 시간이 0이면 `null` 처리
-- 마포구/원룸/1인 가구 고정값 추가
-
-프론트에서 하지 않는 것:
-
-- 전년도 사용량 추정
-- 월평균기온/습도 같은 날씨 피처 생성
-- 습도_x_전년사용량 같은 ML 상호작용 피처 생성
-- 최종 모델 전처리와 예측 판단
-
-위 항목은 백엔드/ML 파이프라인에서 처리해야 합니다.
-
-백엔드/ML 해석 기준:
-
-- `has_aircon: false`, `aircon_hours_per_day: 0`, `aircon_power_w: null`
-  - 에어컨 없음 또는 에어컨 미사용으로 처리
-  - 냉방 사용량 가산 없이 기본 사용량/기준값 중심으로 예측
-- `has_aircon: true`, `aircon_hours_per_day > 0`, `aircon_power_w: null`
-  - 사용자가 소비전력을 모르는 상태
-  - 백엔드/ML에서 평균 소비전력 기본값을 적용
-- `has_aircon: true`, `aircon_hours_per_day > 0`, `aircon_power_w: number`
-  - 사용자가 입력한 소비전력을 냉방 사용량 보정값으로 활용
-
-## 4. 요청 예시
-
-에어컨 미사용:
+## 4. 응답 JSON
 
 ```json
 {
-  "region": "mapo",
-  "housing_type": "oneroom",
-  "household_size": 1,
-  "has_aircon": false,
-  "aircon_hours_per_day": 0,
-  "aircon_power_w": null
+  "predicted_kwh": 238.0,
+  "month": 7,
+  "model_version": "v1",
+  "elapsed_ms": 123.4,
+  "features_used": {
+    "prev_year_usage": 132.0, "avg_temperature": 25.3, "avg_humidity": 76.2,
+    "total_rainfall": 414.4, "current_usage": 245.6, "thi": 78.1,
+    "month_sin": -0.5, "month_cos": -0.866
+  }
 }
 ```
 
-에어컨 사용, 소비전력 모름:
-
-```json
-{
-  "region": "mapo",
-  "housing_type": "oneroom",
-  "household_size": 1,
-  "has_aircon": true,
-  "aircon_hours_per_day": 8,
-  "aircon_power_w": null
-}
-```
-
-에어컨 사용, 소비전력 입력:
-
-```json
-{
-  "region": "mapo",
-  "housing_type": "oneroom",
-  "household_size": 1,
-  "has_aircon": true,
-  "aircon_hours_per_day": 8,
-  "aircon_power_w": 720
-}
-```
-
-## 5. 필수 응답 JSON
-
-백엔드는 최소 아래 두 값을 반환해야 합니다.
-
-```json
-{
-  "predicted_kwh": 238,
-  "estimated_bill": 42200
-}
-```
-
-## 6. 응답 필드 설명
+## 5. 응답 필드 설명
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `predicted_kwh` | number | ML 모델이 예측한 이번 달 전기 사용량 |
-| `estimated_bill` | number | 백엔드가 `predicted_kwh`를 전기요금으로 변환한 값 |
+| `predicted_kwh` | number | ML 모델이 예측한 이번 달 전기 사용량(프론트 필수 필드) |
+| `month` | number | 예측에 사용된 월(투명성) |
+| `model_version` | string \| null | 모델 버전 |
+| `elapsed_ms` | number | ML 호출 소요(ms) |
+| `features_used` | object | 어댑터가 합성한 8개 모델 입력(디버깅용) |
 
-`estimated_bill`이 없으면 프론트가 임시 요금 계산식으로 표시할 수 있지만, 최종 MVP에서는 백엔드에서 계산해서 주는 편이 좋습니다.
+> 프론트는 `predicted_kwh`만 필수로 사용하며, `estimated_bill`은 응답에 없으면 `calculateElectricBill()`로 자체 계산합니다(한국 누진요금식). 백엔드는 요금 변환을 하지 않습니다.
 
-## 7. 백엔드 Mock 예시
+## 6. 어댑터 동작(8피처 합성)
 
-ML 모델이 아직 완성되지 않아도 백엔드는 먼저 mock API를 열 수 있습니다.
+ML 모델은 "**과거 실제 사용량 + 기상**"(8피처)을 요구하지만 프론트는 **에어컨 습관**만 수집합니다. 어댑터(`/api/v1/estimate`)가 그 간극을 메웁니다(`app/services/feature_builder.py`):
 
-```python
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+| 모델 피처 | 합성 방법 |
+| --- | --- |
+| `avg_temperature`·`avg_humidity`·`total_rainfall` | 마포(서울 관측소 108) **월별 기후평년값 1991-2020** 룩업 |
+| `thi` | 한국 불쾌지수 `1.8T − 0.55(1−RH)(1.8T−26) + 32` (운영 예시값 역산 검증) |
+| `month_sin`·`month_cos` | `sin/cos(2π·month/12)` |
+| `prev_year_usage`·`current_usage` | `BASELINE(132kWh) + 에어컨 기여분` **추정**(프론트 `localMockPredict`와 정합) |
 
-app = FastAPI()
+> ⚠️ **MVP 한계:** `prev_year_usage`/`current_usage`는 실측 검침값이 아니라 추정치입니다(프론트가 사용량을 묻지 않음). 정확도를 높이려면 프론트 UX에 실제 사용량 입력을 추가하거나, 에어컨 습관을 직접 입력으로 받는 모델로 교체해야 합니다.
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:4202",
-        "http://localhost:4202",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class PredictRequest(BaseModel):
-    region: str
-    housing_type: str
-    household_size: int
-    has_aircon: bool
-    aircon_hours_per_day: float
-    aircon_power_w: int | None = None
-
-@app.post("/predict")
-def predict(data: PredictRequest):
-    return {
-        "predicted_kwh": 238,
-        "estimated_bill": 42200,
-    }
-```
-
-실행:
-
-```bash
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
-```
-
-## 8. 연결 확인 방법
+## 7. 연결 확인 방법
 
 프론트 실행:
 
@@ -214,23 +113,19 @@ window.singleEnergyFrontend.getPredictEndpoint()
 window.singleEnergyFrontend.buildPayload()
 ```
 
-## 9. 현재 남은 확인 사항
+## 8. 현재 남은 확인 사항
 
-ML 팀 확인 필요:
+배포/연동(✅ 완료 — 2026-06-23 라이브 실측):
 
-- 최종 모델 입력 컬럼이 프론트 요청 필드와 같은지
-- 모델이 직접 받는 컬럼명과 타입
-- `model.pkl`을 백엔드에서 호출할 때 필요한 전처리 방식
+- ✅ 백엔드 어댑터(`/api/v1/estimate`) 운영 배포 — 무키 POST → 200
+- ✅ 백엔드 `CORS_ORIGINS`에 SWA 운영 출처 추가 → `Access-Control-Allow-Origin` = SWA 출처 확인
+- ✅ 프론트 라이브에서 `source=live` 확인(실제 ML 예측 동작)
 
-백엔드 팀 확인 필요:
+정확도(후속):
 
-- `/predict` mock API 먼저 오픈
-- CORS 설정
-- `predicted_kwh`, `estimated_bill` 응답 보장
-- mock 응답을 실제 ML 모델 응답으로 교체
+- `prev_year_usage`/`current_usage` 추정 한계(§6 ⚠️) — 실사용량 입력 UX 또는 모델 교체 검토
+- 기상 평년값 → 실시간/해당연도 기상으로 고도화 여부(ML 팀)
 
-프론트 팀 확인 필요:
+장애 대응(상시):
 
-- mock API 연결 테스트
-- 실제 API 연결 후 결과 화면 확인
-- API 실패 시 콘솔 경고와 화면 fallback 확인
+- API 실패 시 프론트는 `localMockPredict`로 graceful fallback(콘솔 경고 + `source=fallback`)
