@@ -4,7 +4,7 @@
 > **배포 플랫폼:** Azure Static Web Apps
 > **작성일:** 2026-06-23
 > **근거 문서:** [`../../docs/azure/info.md`](../../docs/azure/info.md) §2(Static Web Apps)·§4(백엔드)
-> **상태:** 🟡 SWA 리소스 생성됨(`info.md` §2). **운영 연동(백엔드 URL 주입·CORS·경로 정합) 미완** — 아래 §5·§6 필수 조치 후 출시.
+> **상태:** 🟢 **정적 사이트 배포 완료**(2026-06-23, GitHub Actions `Build and Deploy` 성공, 커밋 `fd752d4`). `config.js`는 운영 백엔드 HTTPS URL로 전환됨. ⚠️ 단 **백엔드 연동(§5: 경로 `/predict`↔`/api/v1/predict`·인증·CORS) 미해소** → 현재 예측은 폴백(`localMockPredict`)으로 동작한다. 실연동은 §5 합의 후 §6의 8~10단계로 검증.
 > ✅ **선결조건 해소(2026-06-23 실측 갱신)**: **SWA↔GitHub 연결은 이미 완료**됐다. Azure가 `origin/main`에 워크플로(`.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml`)를 **자동 커밋**했고, 배포 토큰 시크릿(`AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_DESERT_0CDB08500`)도 자동 등록됐다(§3.0 방법 A 완료). "push 시 자동 배포" 전제는 **성립한다**. ⚠️ 단, 이 정본 워크플로는 `output_location:"/"`·`skip_app_build` 미설정(Azure 기본값) — 빌드리스 강건화는 §3.2 참고.
 > ⚠️ **요청 데이터(페이로드) 계약 미확정**: 프론트가 백엔드로 보내는 요청 본문 필드는 **확정값이 아니며 변경될 수 있다.** 백엔드/ML 팀과 최종 합의 전까지 잠정(provisional)으로 취급한다 — 상세 §5.2.
 
@@ -31,7 +31,7 @@
 |---|---|---|---|---|
 | **A** | `.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml` | ✅ **Azure가 `origin/main`에 자동 생성·커밋 완료** | 정본 채택(수동 작성 불필요). 빌드리스 강건화는 선택 | §3.0·§3.2 |
 | **B** | `staticwebapp.config.json` (루트) | **없음** | 신규 생성(보안헤더·캐시·CSP) | §3.1 |
-| **C** | `config.js` | `http://127.0.0.1:8000`(로컬) | 운영 HTTPS URL 주입 | §4 |
+| **C** | `config.js` | ✅ **운영 HTTPS URL로 전환·배포 완료**(`...koreacentral-01.azurewebsites.net`) | — | §4 |
 | **D** | `script.js` `PREDICT_ENDPOINT`·인증 헤더 | `/predict`, 키 없음 | 백엔드 계약 합의 후 정합 | §5-#1·#2 |
 
 > **A·B는 코드 변경 없이 추가만으로 동작**한다(선행 가능). **C·D는 백엔드 팀 합의(경로·인증·페이로드)에 종속** — §5 게이트 통과 전에는 운영 출시를 보류하고 스테이징 검증까지만 진행한다.
@@ -41,10 +41,10 @@
 | 단계 | 작업 | 산출물 | 선행 | 게이트 |
 |---|---|---|---|---|
 | 1 | 계약 확정 — 페이로드·API 경로·인증/CORS 합의(§5) | (합의 문서) | — | ❗**출시 게이트.** 미합의 시 4~5는 스테이징까지만 |
-| 2 | `staticwebapp.config.json` 루트 추가(§3.1) | B | 없음(선행 가능) | CSP 위반·이미지 export 회귀 없음 |
-| 3 | `config.js`를 운영 HTTPS URL로(§4) | C | 1(경로 합의) | `https://` 필수(혼합콘텐츠) |
-| 4 | ✅ SWA↔GitHub 연결·워크플로·시크릿 **완료**(§3.0). 남은 건 변경분 커밋 → `main` push로 배포 트리거 | A(완료) | 2·3 | Actions green |
-| 5 | 배포·E2E 검증(§6 체크리스트 7~10) | — | 4 | 백엔드 200 실연동 + 폴백 경고 없음 |
+| 2 | ✅ `staticwebapp.config.json` 루트 추가·배포(§3.1) | B(완료) | 없음(선행 가능) | 배포 후 CSP 위반·이미지 export 회귀 점검(§6-10) |
+| 3 | ✅ `config.js`를 운영 HTTPS URL로 전환·배포(§4) | C(완료) | 1(경로 합의) | `https://` 적용됨 |
+| 4 | ✅ 커밋 `fd752d4` → `main` push → **Actions `Build and Deploy` green**(2026-06-23) | A(완료) | 2·3 | Actions green ✅ |
+| 5 | 🟡 정적 배포 완료. **E2E 실연동 검증은 §5 합의 후**(§6 체크리스트 8~10) | — | 4 | 백엔드 200 실연동 + 폴백 경고 없음 |
 
 ---
 
@@ -111,7 +111,7 @@ Azure Static Web Apps는 **GitHub Actions로 push 시 자동 배포**된다. SWA
 |---|---|
 | 자동 커밋된 워크플로 | `origin/main:.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml` |
 | 자동 등록된 시크릿 | `AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_DESERT_0CDB08500` (워크플로가 정확히 이 이름을 참조) |
-| 상태 | `origin/main`이 로컬 `main`보다 **1커밋 앞섬**(워크플로 커밋). 로컬은 다음 `pull` 시 동기화됨 |
+| 상태 | ✅ 로컬·`origin/main` 동기화됨. 배포 커밋 `fd752d4` push로 **`Build and Deploy` green** 확인(2026-06-23) |
 
 > ✅ 워크플로·시크릿이 모두 갖춰져 **`main` push마다 자동 배포가 동작**한다. 아래 방법 B/C는 **이미 불필요**하며, 참고용으로만 남긴다.
 > 🔴 **중복 워크플로 금지:** 수동으로 `azure-static-web-apps.yml`을 또 만들면 정본과 **이중 배포**가 돈다. 정본 1개만 유지할 것(이 작업 중 생성했던 수동 중복본은 제거됨).
@@ -189,16 +189,17 @@ with:
 > **적용 후 검증:** 배포 후 브라우저 콘솔에 CSP 위반 로그가 없는지, **리포트 "이미지 저장/공유"가 정상 동작**하는지 확인. 만약 스타일 위반이 보이면 `style-src`에 `'unsafe-inline'`을 한시적으로 추가하고 원인을 추적한다.
 > ⚠️ `globalHeaders`의 `Access-Control-Allow-*`는 **SWA 자체 응답**에만 적용된다. 백엔드 `fetch`의 CORS는 **백엔드가 제어**한다(§5.1).
 
-### 3.2 (산출물 A) 정본 워크플로 — Azure 자동생성본 + 빌드리스 강건화 권고
+### 3.2 (산출물 A) 정본 워크플로 — Azure 자동생성본 + 빌드리스 강건화(적용 완료)
 
-> **상태 정정:** 산출물 A는 **직접 만들 필요가 없다.** §3.0대로 포털 연결(방법 A)이 이미 끝나 Azure가 `origin/main`에 정본을 커밋해 뒀다. 아래는 **그 정본의 실제 내용**(2026-06-23 `git show origin/main` 실측)과, 빌드리스 사이트에 맞춘 **선택적 강건화 권고**다.
+> **상태:** 산출물 A는 §3.0대로 Azure가 자동 커밋한 정본을 채택했고, 빌드리스 강건화 2줄을 **적용·배포 완료**했다(커밋 `fd752d4`, Actions `Build and Deploy` green — `skip_app_build`로 Oryx 빌드 단계 없이 업로드 성공 확인).
 
-**정본(Azure 자동생성, `azure-static-web-apps-thankful-desert-0cdb08500.yml`)의 핵심 `with:` — 실측:**
+**현재 정본(`azure-static-web-apps-thankful-desert-0cdb08500.yml`)의 핵심 `with:` — 적용 후:**
 
 ```yaml
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4   # ✅ @v3→@v4 상향(Node20 폐기 대응)
         with:
           submodules: true
+          lfs: false
       - uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_DESERT_0CDB08500 }}
@@ -206,19 +207,21 @@ with:
           action: "upload"
           app_location: "/"        # ✅ 정합
           api_location: ""         # ✅ 정합(내장 API 미사용)
-          output_location: "/"     # ⚠️ Azure 기본값. 빌드리스에선 "" 권고(아래)
-          # skip_app_build 미설정    # ⚠️ Oryx 자동판단에 의존
+          output_location: ""      # ✅ 강건화 적용(빌드리스 → 빈 문자열)
+          skip_app_build: true     # ✅ 강건화 적용(Oryx 빌드 건너뜀)
 ```
 
-**평가 — 그대로도 동작하지만, 빌드리스 강건화 2줄을 권고한다.**
+**적용 이력 — 빌드리스 강건화 2줄(배포로 검증됨):**
 
-| 항목 | 정본(현재) | 권고 | 이유 |
-|---|---|---|---|
-| `skip_app_build` | 없음 | `true` 추가 | `package.json`이 없어 Oryx가 빌드를 건너뛰긴 하나, 명시하면 *"unable to determine app artifacts"* 류 오류를 원천 차단 |
-| `output_location` | `"/"` | `""` | 빌드 산출물이 없으므로 빈 문자열이 의미상 정확. `"/"`도 보통 통과하나 환경에 따라 모호 |
+| 항목 | 변경 | 결과 |
+|---|---|---|
+| `output_location` | `"/"` → `""` | 빌드 산출물 없음을 의미상 정확히 표현 |
+| `skip_app_build` | (없음) → `true` | Oryx 빌드 단계 생략 — Actions 로그에서 빌드 없이 업로드 확인 |
 
-> **권고 적용 = origin/main의 정본 파일을 직접 수정하는 일**이므로, 로컬에서 `git pull`로 정본을 받은 뒤 위 2줄을 고쳐 커밋·push해야 한다. **이는 코드 변경이 아니라 CI 설정 변경**이라 백엔드 계약(§5) 게이트와 무관하게 진행 가능. 단, 정본이 **현재도 배포는 된다**(필수 아님, 강건화 목적).
-> **시크릿:** 정본은 이미 실제 시크릿명(`...THANKFUL_DESERT_0CDB08500`)을 정확히 참조 → 추가 조치 불필요.
+**✅ 후속 검토 항목 해소 — `actions/checkout@v3` → `@v4` 상향 완료:**
+> 2026-06-23 배포 Actions annotation(*"Node.js 20 is deprecated … checkout@v3 … forced to run on Node.js 24"*)에 따라 **`@v4`로 상향 적용**했다. CI 설정 변경이라 §5 게이트와 무관하게 진행.
+
+> **시크릿:** 정본은 실제 시크릿명(`...THANKFUL_DESERT_0CDB08500`)을 정확히 참조 → 추가 조치 불필요.
 > **OIDC 전환 시(선택):** `permissions: id-token: write` + `github_id_token` 입력 추가. 장기 비밀값 제거로 더 안전.
 
 ---
@@ -310,18 +313,19 @@ window.SINGLE_ENERGY_API_BASE_URL =
 
 ```
 [x] 0. ✅ (완료) SWA ↔ GitHub 연결 — Azure 자동생성 워크플로 + 시크릿 등록 완료 (§3.0)
-[ ] 1. SWA 포털 정보 확인 → §2.1 표의 빈 값 채우기 (리소스명/호스트네임/토큰)
-[ ] 2. config.js를 운영 백엔드 HTTPS URL로 변경 — https 필수(혼합콘텐츠) (§4)
+[ ] 1. SWA 포털 정보 확인 → §2.1 표의 빈 값 채우기 (리소스명/호스트네임/토큰) — **8~10단계 검증에 호스트네임 필요**
+[x] 2. ✅ config.js를 운영 백엔드 HTTPS URL로 변경·배포 완료 (§4)
 [ ] 3. (필수·출시게이트) 요청 페이로드 계약 확정 — buildPayload() ↔ API_CONTRACT.md ↔ 백엔드 스키마 합의/동기화 (§5-#3, §5.2)
 [ ] 4. (필수) API 경로 불일치 해소 — /predict vs /api/v1/predict (§5-#1)
 [ ] 5. (필수) 인증/CORS 정책 결정 및 적용 (§5-#2, §5.1)
-[x] 6a. ✅ staticwebapp.config.json(산출물 B, §3.1) 루트 추가 완료
-[~] 6b. (선택) 정본 워크플로 빌드리스 강건화 — skip_app_build:true·output_location:"" 적용됨(로컬, LF 정규화). **push 대기**(§3.2)
-[ ] 7. 변경분 커밋 → main push → GitHub Actions 자동 배포(워크플로 로그 green 확인)
-[ ] 8. SWA URL 접속 → 화면 동작 + 실제 예측(백엔드 200 응답) E2E 확인
-[ ] 9. 콘솔/네트워크 확인 — fallback 경고 없음 + /predict 응답 200 + CSP 위반 없음
+[x] 6a. ✅ staticwebapp.config.json(산출물 B, §3.1) 루트 추가·배포 완료
+[x] 6b. ✅ 정본 워크플로 빌드리스 강건화 — skip_app_build:true·output_location:"" 적용·배포 완료(§3.2)
+[x] 6c. ✅ actions/checkout@v3 → @v4 상향 완료 — Node20 폐기 대응(§3.2)
+[x] 7. ✅ 커밋 fd752d4 → main push → Actions `Build and Deploy` green (2026-06-23)
+[ ] 8. SWA URL 접속 → 화면 동작 + 실제 예측(백엔드 200 응답) E2E 확인 — **§5 합의 후**
+[ ] 9. 콘솔/네트워크 확인 — fallback 경고 없음 + 응답 200 + CSP 위반 없음 — **§5 합의 후**
        window.singleEnergyFrontend.getPredictEndpoint()
-[ ] 10. 리포트 "이미지 저장/공유" 동작 확인 (CSP img-src blob: 회귀 점검, §3.1)
+[ ] 10. 리포트 "이미지 저장/공유" 동작 확인 (CSP img-src blob: 회귀 점검, §3.1) — **배포됨, 지금 검증 가능**
 ```
 
 > 백엔드 미응답 시 프론트는 `script.js`의 `localMockPredict`로 **자동 폴백**해 화면은 뜨지만, 이는 운영 정상 동작이 아니다. 8·9단계로 반드시 실연동을 확인할 것.
