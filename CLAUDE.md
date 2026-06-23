@@ -22,7 +22,7 @@ There is no lint/build/test tooling, and no JS runtime in this environment (`nod
 
 ## Architecture
 
-Everything is at the repo root: `index.html` (markup for all screens), `styles.css`, and `script.js` (all logic, ~1380 lines, no modules). `config.js` is a one-line config seam loaded before `script.js`. Brand SVGs live in `assets/brand/` (`jjirit-icon.svg`, `jjirit-logo.svg`); display fonts (Moneygraphy) in `assets/fonts/`.
+Everything is at the repo root: `index.html` (markup for all screens), `styles.css`, and `script.js` (all logic, ~1330 lines, no modules). `config.js` is a small host-aware config seam loaded before `script.js`. Brand SVGs live in `assets/brand/` (`jjirit-icon.svg`, `jjirit-logo.svg`); display fonts (Moneygraphy) in `assets/fonts/`.
 
 **Screen wizard.** The UI is a single phone-frame of `<article class="screen">` elements driven by the `screens` array (near the top of `script.js`): `splash → start → airconTime → loading → report` (5 steps; progress shows `n/5`). Navigation is a hand-rolled state machine — `goTo(index)` / `goNext()` toggle the `.active` class and `body[data-current-screen]`. `state` holds the wizard index plus the user's aircon inputs. All DOM references are cached up front in the `els` object. The final `report` screen carries all result figures — there is no separate result screen, and `renderPrediction()` writes only to report/summary elements.
 
@@ -40,7 +40,7 @@ Everything is at the repo root: `index.html` (markup for all screens), `styles.c
 
 ## API integration
 
-The API base URL is the single environment seam: `window.SINGLE_ENERGY_API_BASE_URL` in `config.js` (defaults to `http://127.0.0.1:8000`). The frontend calls `POST {base}/predict`. Full request/response shape is in `API_CONTRACT.md`.
+The API base URL is the single environment seam: `window.SINGLE_ENERGY_API_BASE_URL` in `config.js`. `config.js` is loaded before `script.js` and is **host-aware** (recurrence guard from the 2026-06-23 dev mis-deploy): when served from a non-local host (any production / SWA-preview hostname) it **forces the production Azure backend URL** regardless of any pre-set global — so a branch accidentally shipping a `localhost` config can't break the live backend link; only on `localhost`/`127.0.0.1`/`file://` does it fall back to `http://127.0.0.1:8000` (overridable by setting the global before load). `script.js` still defaults to `http://127.0.0.1:8000` if the global is somehow unset. To develop against a local backend, edit `config.js`. The frontend calls `POST {base}/predict`. Full request/response shape is in `API_CONTRACT.md`.
 
 Request body (from `buildPayload()`): `region`, `housing_type`, `household_size`, `has_aircon`, `aircon_hours_per_day`, `aircon_power_w` (number | `null` | `0`), `aircon_type`. Response the frontend depends on: `predicted_kwh` (required) + `estimated_bill` (optional).
 
@@ -50,4 +50,8 @@ Request body (from `buildPayload()`): `region`, `housing_type`, `household_size`
 
 ## Deployment
 
-Target is **Azure Static Web Apps Standard** (pure static, no build). Full operational runbook — resource info, GitHub-connection prerequisite, `staticwebapp.config.json` (incl. CSP), CORS, and the backend-contract mismatches — is in `docs/DEPLOYMENT.md`. Set the production backend HTTPS URL in `config.js` before deploying.
+Target is **Azure Static Web Apps Standard** (pure static, no build). Deployment is **live and automated**: `.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml` deploys to Azure SWA on every push to `main` (and creates preview environments for PRs), with `skip_app_build: true` / empty `output_location` since there is no build step. So merging to `main` ships to production.
+
+`staticwebapp.config.json` lives at the **repo root** (not just documented in `docs/`): it does SPA-style `navigationFallback` to `/index.html`, caches `/assets/*` for a year, and sets the security headers + CSP. The CSP is the constraint that shapes a few code decisions — `script-src 'self'` (no inline scripts, no CDN, which is why `html2canvas` cannot be loaded and is not bundled), `img-src 'self' data: blob:` (needed for the report-image export), and `connect-src` is pinned to `'self'` + the one production backend host (so changing the backend URL means updating both `config.js` **and** the CSP `connect-src`).
+
+Full operational runbook — resource info, GitHub-connection prerequisite, CORS, and the backend-contract mismatches — is in `docs/DEPLOYMENT.md`; `docs/POST_DEPLOY_REVIEW.md` is the post-deploy verification log. Set the production backend HTTPS URL in `config.js` before deploying.
