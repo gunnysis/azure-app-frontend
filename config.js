@@ -23,9 +23,18 @@
     host === "0.0.0.0" ||
     host === "[::1]";
 
+  var isCloudflareHost =
+    host.endsWith(".workers.dev") ||
+    host.endsWith(".pages.dev") ||
+    host === "single-energy-predict.jaeheeejeon.workers.dev";
+
   if (isLocalDev) {
     window.SINGLE_ENERGY_API_BASE_URL =
       window.SINGLE_ENERGY_API_BASE_URL || "http://127.0.0.1:8000";
+  } else if (isCloudflareHost) {
+    // Cloudflare 배포본은 같은 도메인의 Functions 프록시를 거쳐 Azure 백엔드를 호출한다.
+    // 브라우저 CORS를 피하고, 실제 Azure API 주소 변경도 프론트 배포 안에서 흡수한다.
+    window.SINGLE_ENERGY_API_BASE_URL = window.location.origin;
   } else {
     // 운영(또는 SWA 프리뷰 등 비로컬) 호스트 → 항상 운영 백엔드 강제
     window.SINGLE_ENERGY_API_BASE_URL = PROD_API_BASE;
