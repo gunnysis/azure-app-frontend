@@ -50,6 +50,9 @@ POST {API_BASE_URL}/api/v1/estimate     # 무키(API Key 불필요)
 ```json
 {
   "predicted_kwh": 238.0,
+  "estimated_bill": 42600,
+  "baseline_kwh": 165,
+  "baseline_bill": 26200,
   "month": 7,
   "model_version": "v1",
   "elapsed_ms": 123.4,
@@ -66,12 +69,15 @@ POST {API_BASE_URL}/api/v1/estimate     # 무키(API Key 불필요)
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `predicted_kwh` | number | ML 모델이 예측한 이번 달 전기 사용량(프론트 필수 필드) |
+| `estimated_bill` | number \| 없음 | 예상 전기요금. 없으면 프론트가 `predicted_kwh`로 자체 계산 |
+| `baseline_kwh` | number \| 없음 | 마포구 1인 가구 기준 사용량. 없으면 프론트 기본값 `165kWh` 사용 |
+| `baseline_bill` | number \| 없음 | 기준 사용량의 예상 요금. 없으면 프론트가 `baseline_kwh`로 자체 계산 |
 | `month` | number | 예측에 사용된 월(투명성) |
 | `model_version` | string \| null | 모델 버전 |
 | `elapsed_ms` | number | ML 호출 소요(ms) |
 | `features_used` | object | 어댑터가 합성한 8개 모델 입력(디버깅용) |
 
-> 프론트는 `predicted_kwh`만 필수로 사용하며, `estimated_bill`은 응답에 없으면 `calculateElectricBill()`로 자체 계산합니다(한국 누진요금식). 백엔드는 요금 변환을 하지 않습니다.
+> 프론트는 `predicted_kwh`만 필수로 사용합니다. `estimated_bill`, `baseline_kwh`, `baseline_bill`은 백엔드가 주면 그대로 쓰고, 없으면 프론트 기본값/계산식으로 화면을 구성합니다. 발표 정확도를 높이려면 백엔드에서 기준값까지 내려주는 편이 가장 깔끔합니다.
 
 ## 6. 어댑터 동작(8피처 합성)
 
@@ -120,6 +126,7 @@ window.singleEnergyFrontend.buildPayload()
 - ✅ 백엔드 어댑터(`/api/v1/estimate`) 운영 배포 — 무키 POST → 200
 - ✅ 백엔드 `CORS_ORIGINS`에 SWA 운영 출처 추가 → `Access-Control-Allow-Origin` = SWA 출처 확인
 - ✅ 프론트 라이브에서 `source=live` 확인(실제 ML 예측 동작)
+- ⚠️ 현재 프론트는 기준 사용량/기준 요금이 응답에 없으면 fallback 기준값(`165kWh`)으로 비교합니다. 백엔드에서 `baseline_kwh`, `baseline_bill`을 내려주면 화면 비교 기준도 동적으로 바뀝니다.
 
 정확도(후속):
 

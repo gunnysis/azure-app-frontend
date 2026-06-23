@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>찌릿</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260624-flow-polish-v2" />
-    <link rel="stylesheet" href="./styles.css?v=20260624-flow-polish-v2" />
+    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260624-flow-polish-v3" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-flow-polish-v3" />
   </head>
   <body data-theme="light" data-current-screen="splash">
     <main class="stage">
@@ -46,7 +46,6 @@
 
               <div class="onboarding-copy">
                 <h1>이번 달 전기세,<br />미리 볼까요?</h1>
-                <p>정확한 청구서가 아니라, 지금 조건으로 미리 보는 예상 범위예요.</p>
               </div>
             </div>
           </article>
@@ -54,7 +53,7 @@
           <article class="screen" data-screen="airconTime">
             <div class="section-head">
               <h2>에어컨은 하루에 얼마나 쓰나요?</h2>
-              <p>여름철 하루 평균 기준으로 골라주세요. 정확하지 않아도 괜찮아요.</p>
+              <p><span>하루 평균 사용시간은 넉넉하게 잡아주세요.</span><span>정확하지 않아도 괜찮아요.</span></p>
             </div>
 
             <div class="range-card aircon-time-card">
@@ -79,11 +78,10 @@
               <p id="airconTimeHint" hidden></p>
             </div>
 
-            <div class="aircon-reference-card mock-only" id="airconTypeBlock">
-              <div class="reference-card-head">
+            <details class="aircon-reference-card mock-only" id="airconTypeBlock">
+              <summary class="reference-card-head">
                 <span>참고용 입력</span>
-                <b>선택 가능</b>
-              </div>
+              </summary>
               <div class="aircon-type-options" role="group" aria-label="에어컨 종류 참고용 선택">
                 <button type="button" data-aircon-type="fixed" aria-pressed="false">
                   <strong>정속형</strong>
@@ -106,8 +104,8 @@
                   <b>W</b>
                 </div>
               </label>
-              <p id="airconPowerHint">참고용 입력이에요. 현재 예측은 사용 시간을 중심으로 계산해요.</p>
-            </div>
+              <p id="airconPowerHint" hidden>참고용 입력이에요. 현재 예측은 사용 시간을 중심으로 계산해요.</p>
+            </details>
 
           </article>
 
@@ -226,7 +224,7 @@
               <section class="report-reason">
                 <div class="reason-icon" id="reasonIcon">↗</div>
                 <div>
-                  <span>가장 큰 요인</span>
+                  <span>예측 포인트</span>
                   <strong id="shareReason">에어컨 사용 조건이 요금 상승에 크게 반영됐어요</strong>
                 </div>
               </section>
@@ -246,6 +244,15 @@
               <p class="report-disclaimer">AI 예측 결과라 실제 청구요금과 다를 수 있어요.</p>
             </div>
 
+            <div class="tip-list compact-tips" id="tipList" aria-label="조정 행동 목록"></div>
+
+            <div class="summary-card">
+              <div><span>지역</span><strong>마포구</strong></div>
+              <div><span>주거</span><strong>원룸</strong></div>
+              <div><span>가구</span><strong>1인</strong></div>
+              <div><span>하루 사용</span><strong id="summaryAirconHours">4시간</strong></div>
+            </div>
+
             <div class="report-actions">
               <button class="share-action secondary" type="button" id="saveImageButton">
                 <span>⬇</span>
@@ -258,15 +265,6 @@
             </div>
 
             <div class="report-status" id="shareStatus" role="status" aria-live="polite"></div>
-
-            <div class="tip-list compact-tips" id="tipList" aria-label="조정 행동 목록"></div>
-
-            <div class="summary-card">
-              <div><span>지역</span><strong>마포구</strong></div>
-              <div><span>주거</span><strong>원룸</strong></div>
-              <div><span>가구</span><strong>1인</strong></div>
-              <div><span>하루 사용</span><strong id="summaryAirconHours">4시간</strong></div>
-            </div>
 
             <button class="report-reset-button" type="button" id="resetReportButton">처음으로 돌아가기</button>
           </article>
@@ -318,7 +316,7 @@
         </div>
       </section>
     </main>
-    <script src="./config.js?v=20260624-flow-polish-v2"></script>
-    <script src="./script.js?v=20260624-flow-polish-v2"></script>
+    <script src="./config.js?v=20260624-flow-polish-v3"></script>
+    <script src="./script.js?v=20260624-flow-polish-v3"></script>
   </body>
 </html>

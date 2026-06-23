@@ -31,6 +31,7 @@ const state = {
   hintTimer: null,
   chatMessages: [],
   airconTimeTouched: false,
+  referenceInputTouched: false,
 };
 
 const els = {
@@ -253,6 +254,8 @@ function syncAirconPowerState() {
   if (disabled) {
     state.airconPowerW = 0;
     state.airconType = "none";
+    state.referenceInputTouched = false;
+    if (typeBlock) typeBlock.open = false;
   } else if (state.airconType === "none") {
     state.airconType = "unknown";
   }
@@ -318,6 +321,8 @@ function localMockPredict(payload) {
   return {
     predicted_kwh: predictedKwh,
     estimated_bill: calculateElectricBill(predictedKwh),
+    baseline_kwh: BASELINE_KWH,
+    baseline_bill: BASELINE_BILL,
     source: "sample",
   };
 }
@@ -329,9 +334,15 @@ function normalizePredictionResponse(data) {
   }
 
   const bill = Number(data.estimated_bill ?? data.bill ?? data.estimated_won);
+  const baselineKwh = Number(data.baseline_kwh ?? data.baseline_usage_kwh ?? data.average_kwh);
+  const baselineBill = Number(data.baseline_bill ?? data.baseline_estimated_bill ?? data.average_bill);
   return {
     predicted_kwh: predicted,
     estimated_bill: Number.isFinite(bill) && bill > 0 ? bill : calculateElectricBill(predicted),
+    baseline_kwh: Number.isFinite(baselineKwh) && baselineKwh > 0 ? baselineKwh : BASELINE_KWH,
+    baseline_bill: Number.isFinite(baselineBill) && baselineBill > 0
+      ? baselineBill
+      : calculateElectricBill(Number.isFinite(baselineKwh) && baselineKwh > 0 ? baselineKwh : BASELINE_KWH),
     source: "live",
     raw: data,
   };
@@ -365,26 +376,26 @@ async function requestPrediction(payload) {
   }
 }
 
-function getRisk(kwh) {
-  const gap = kwh - BASELINE_KWH;
+function getRisk(kwh, baselineKwh = BASELINE_KWH) {
+  const gap = kwh - baselineKwh;
   if (gap >= 85) return { label: "위험", color: "#ef4444", text: "마포구 1인 가구 기준보다 꽤 높아요." };
   if (gap >= 20) return { label: "주의", color: "#f59e0b", text: "마포구 1인 가구 기준보다 조금 높아요." };
   return { label: "안정", color: "#00a86b", text: "마포구 1인 가구 기준과 비슷해요." };
 }
 
-function getReason(payload, prediction) {
-  const gap = Math.round(prediction.predicted_kwh - BASELINE_KWH);
+function getReason(payload, prediction, baselineKwh = BASELINE_KWH) {
+  const gap = Math.round(prediction.predicted_kwh - baselineKwh);
   const hours = payload.aircon_hours_per_day;
   const lead = hours > 0
-    ? `하루 ${formatHours(hours)}시간 에어컨 사용이 차이를 만든 주요 입력값이에요.`
-    : "에어컨을 쓰지 않는 조건이라 냉방 전력 부담은 낮게 잡혔어요.";
-  if (gap > 0) return `${lead} 평균보다 ${formatNumber(gap)}kWh 더 높게 예측됐어요.`;
-  if (gap < 0) return `${lead} 평균보다 ${formatNumber(Math.abs(gap))}kWh 낮게 예측됐어요.`;
-  return `${lead} 마포 평균 사용량과 거의 비슷해 보여요.`;
+    ? `핵심은 에어컨을 켰다는 사실보다, 그 시간이 매일 반복될 때 월 사용량 차이로 커진다는 점이에요.`
+    : "에어컨을 쓰지 않는 조건이라 기본 생활 전력 중심으로 계산했어요.";
+  if (gap > 0) return `${lead} 기준보다 ${formatNumber(gap)}kWh 높게 예측됐어요.`;
+  if (gap < 0) return `${lead} 기준보다 ${formatNumber(Math.abs(gap))}kWh 낮게 예측됐어요.`;
+  return `${lead} 기준 사용량과 거의 비슷해 보여요.`;
 }
 
-function getReportProfile(payload, prediction) {
-  const gap = prediction.predicted_kwh - BASELINE_KWH;
+function getReportProfile(payload, prediction, baselineKwh = BASELINE_KWH) {
+  const gap = prediction.predicted_kwh - baselineKwh;
   const hours = payload.aircon_hours_per_day;
 
   if (gap >= 85) {
@@ -396,7 +407,7 @@ function getReportProfile(payload, prediction) {
       mood: "위험 감지",
       character: "./assets/brand/characters/jjirit-alert.png",
       reasonIcon: "!",
-      reason: "예상 사용량이 마포구 1인 가구 기준보다 크게 높게 잡혔어요.",
+      reason: "하루 사용 시간이 한 달치로 누적되면서 마포구 1인 가구 기준과의 차이가 크게 벌어졌어요.",
     };
   }
 
@@ -409,7 +420,7 @@ function getReportProfile(payload, prediction) {
       mood: "안심 신호",
       character: "./assets/brand/characters/jjirit-steady.png",
       reasonIcon: "✓",
-      reason: "에어컨을 쓰지 않는 조건이라 냉방 전력 부담은 낮게 잡혔어요.",
+      reason: "냉방 사용 시간이 0시간이라 기본 생활 전력 중심으로 계산했어요.",
     };
   }
 
@@ -422,7 +433,7 @@ function getReportProfile(payload, prediction) {
       mood: "절약 성공",
       character: "./assets/brand/characters/jjirit-saving.png",
       reasonIcon: "✓",
-      reason: `하루 ${formatHours(hours)}시간 냉방 조건이라 요금 부담이 크게 튀지 않게 잡혔어요.`,
+      reason: `하루 ${formatHours(hours)}시간 사용은 월 기준으로 봐도 기준 구간 안쪽에 가깝게 잡혀요.`,
     };
   }
 
@@ -435,7 +446,7 @@ function getReportProfile(payload, prediction) {
       mood: "냉방 체크",
       character: "./assets/brand/characters/jjirit-basic.png",
       reasonIcon: "↗",
-      reason: `하루 ${formatHours(hours)}시간 냉방 조건이 요금 상승에 크게 반영됐어요.`,
+      reason: `하루 ${formatHours(hours)}시간은 월 ${formatNumber(hours * 30)}시간으로 쌓여요. 이 누적 시간이 기준 대비 차이를 크게 만들었어요.`,
     };
   }
 
@@ -448,7 +459,7 @@ function getReportProfile(payload, prediction) {
       mood: "주의 신호",
       character: "./assets/brand/characters/jjirit-basic.png",
       reasonIcon: "↗",
-      reason: `하루 ${formatHours(hours)}시간 에어컨 사용이 예상 요금에 반영됐어요.`,
+      reason: `하루 ${formatHours(hours)}시간이 매일 반복되면 월 사용량이 기준 구간을 넘기 쉬워요.`,
     };
   }
 
@@ -460,7 +471,7 @@ function getReportProfile(payload, prediction) {
     mood: "가끔 찌릿",
     character: "./assets/brand/characters/jjirit-basic.png",
     reasonIcon: "↗",
-    reason: `하루 ${formatHours(hours)}시간 냉방 조건은 기준 대비 큰 부담은 아니에요.`,
+    reason: `사용 시간이 짧아 월 누적 전력 부담은 아직 크게 튀지 않는 편이에요.`,
   };
 }
 
@@ -585,9 +596,16 @@ function scheduleAirconTimeHint() {
 function renderAirconPowerHint() {
   if (!els.airconPowerHint) return;
   if (!hasAirconUsage()) {
-    els.airconPowerHint.textContent = "에어컨 미사용 시 참고 입력은 숨겨요.";
+    els.airconPowerHint.hidden = true;
+    els.airconPowerHint.textContent = "";
     return;
   }
+  if (!state.referenceInputTouched) {
+    els.airconPowerHint.hidden = true;
+    els.airconPowerHint.textContent = "";
+    return;
+  }
+  els.airconPowerHint.hidden = false;
   els.airconPowerHint.textContent = "참고용 입력이에요. 현재 예측은 사용 시간을 중심으로 계산해요.";
 }
 
@@ -616,26 +634,32 @@ function renderTips(tips) {
 function setAirconType(type) {
   if (!hasAirconUsage()) {
     state.airconType = "none";
+    state.referenceInputTouched = false;
     renderAirconTypeButtons();
+    renderAirconPowerHint();
     renderPrediction();
     return;
   }
   state.airconType = AIRCON_TYPE_LABELS[type] ? type : "unknown";
+  state.referenceInputTouched = true;
   renderAirconTypeButtons();
+  renderAirconPowerHint();
   renderPrediction();
 }
 
 function renderPrediction(prediction = state.lastPrediction) {
   const payload = buildPayload();
   const result = prediction || localMockPredict(payload);
-  const risk = getRisk(result.predicted_kwh);
-  const usageGap = Math.round(result.predicted_kwh - BASELINE_KWH);
-  const billGap = Math.round(result.estimated_bill - BASELINE_BILL);
-  const usageMax = Math.max(260, result.predicted_kwh, BASELINE_KWH);
+  const baselineKwh = Number(result.baseline_kwh) > 0 ? Number(result.baseline_kwh) : BASELINE_KWH;
+  const baselineBill = Number(result.baseline_bill) > 0 ? Number(result.baseline_bill) : calculateElectricBill(baselineKwh);
+  const risk = getRisk(result.predicted_kwh, baselineKwh);
+  const usageGap = Math.round(result.predicted_kwh - baselineKwh);
+  const billGap = Math.round(result.estimated_bill - baselineBill);
+  const usageMax = Math.max(260, result.predicted_kwh, baselineKwh);
   const tips = getTipCandidates(payload, result);
   const topTip = tips[0];
-  const profile = getReportProfile(payload, result);
-  const billMax = Math.max(result.estimated_bill, BASELINE_BILL, 1);
+  const profile = getReportProfile(payload, result, baselineKwh);
+  const billMax = Math.max(result.estimated_bill, baselineBill, 1);
 
   els.resultKwhNumber.textContent = formatNumber(result.predicted_kwh);
   els.resultBillHero.textContent = formatBillRange(result.estimated_bill);
@@ -648,16 +672,16 @@ function renderPrediction(prediction = state.lastPrediction) {
   els.riskBadge.textContent = risk.label;
   els.riskBadge.style.color = risk.color;
   els.riskBadge.style.background = `${risk.color}1f`;
-  els.baselineKwhMini.textContent = formatNumber(BASELINE_KWH);
+  els.baselineKwhMini.textContent = formatNumber(baselineKwh);
   els.usageDelta.textContent = formatSignedKwh(usageGap);
   els.usageDelta.style.color = usageGap > 0 ? risk.color : usageGap < 0 ? "#00a86b" : "var(--strong)";
-  els.baselineKwh.textContent = `${formatNumber(BASELINE_KWH)}kWh`;
+  els.baselineKwh.textContent = `${formatNumber(baselineKwh)}kWh`;
   els.myKwh.textContent = `${formatNumber(result.predicted_kwh)}kWh`;
-  els.baselineUsageBar.style.width = `${Math.max(26, (BASELINE_KWH / usageMax) * 100)}%`;
+  els.baselineUsageBar.style.width = `${Math.max(26, (baselineKwh / usageMax) * 100)}%`;
   els.myUsageBar.style.width = `${Math.max(26, (result.predicted_kwh / usageMax) * 100)}%`;
   els.myUsageBar.style.background = risk.color;
-  els.usageReason.textContent = getReason(payload, result);
-  els.baselineBill.textContent = formatBillRange(BASELINE_BILL);
+  els.usageReason.textContent = getReason(payload, result, baselineKwh);
+  els.baselineBill.textContent = formatBillRange(baselineBill);
   els.billDelta.textContent = `${billGap >= 0 ? "+" : "-"}${formatGapRange(Math.abs(billGap))}`;
   els.billDelta.style.color = billGap >= 0 ? risk.color : "#00a86b";
 
@@ -682,9 +706,9 @@ function renderPrediction(prediction = state.lastPrediction) {
     billGap >= 0
       ? `기준보다 ${formatGapRange(Math.abs(billGap))} 높게 예측됐어요`
       : `기준보다 ${formatGapRange(Math.abs(billGap))} 낮게 예측됐어요`;
-  els.shareBaselineBill.textContent = formatBillRange(BASELINE_BILL);
+  els.shareBaselineBill.textContent = formatBillRange(baselineBill);
   els.shareMineBill.textContent = formatBillRange(result.estimated_bill);
-  els.shareBaselineBar.style.width = `${clamp((BASELINE_BILL / billMax) * 100, 24, 100)}%`;
+  els.shareBaselineBar.style.width = `${clamp((baselineBill / billMax) * 100, 24, 100)}%`;
   els.shareMineBar.style.width = `${clamp((result.estimated_bill / billMax) * 100, 24, 100)}%`;
   els.reasonIcon.textContent = profile.reasonIcon;
   els.shareReason.textContent = usageGap > 0 ? profile.reason : "현재 조건은 기준과 비슷하지만, 작은 습관을 줄이면 다음 달 요금을 더 낮출 수 있어요.";
@@ -865,17 +889,19 @@ function appendChatMessage(role, content, { pending = false } = {}) {
 function getChatContext() {
   const payload = buildPayload();
   const prediction = state.lastPrediction || localMockPredict(payload);
-  const risk = getRisk(prediction.predicted_kwh);
-  const billGap = Math.round(prediction.estimated_bill - BASELINE_BILL);
-  const usageGap = Math.round(prediction.predicted_kwh - BASELINE_KWH);
+  const baselineKwh = Number(prediction.baseline_kwh) > 0 ? Number(prediction.baseline_kwh) : BASELINE_KWH;
+  const baselineBill = Number(prediction.baseline_bill) > 0 ? Number(prediction.baseline_bill) : calculateElectricBill(baselineKwh);
+  const risk = getRisk(prediction.predicted_kwh, baselineKwh);
+  const billGap = Math.round(prediction.estimated_bill - baselineBill);
+  const usageGap = Math.round(prediction.predicted_kwh - baselineKwh);
   return {
     service: "마포구 원룸 1인 가구 전기요금 예측 서비스 '찌릿'",
     payload,
     prediction: {
       predicted_kwh: prediction.predicted_kwh,
       estimated_bill_range: formatBillRange(prediction.estimated_bill),
-      baseline_kwh: BASELINE_KWH,
-      baseline_bill_range: formatBillRange(BASELINE_BILL),
+      baseline_kwh: baselineKwh,
+      baseline_bill_range: formatBillRange(baselineBill),
       usage_gap_kwh: usageGap,
       bill_gap_range: formatGapRange(Math.abs(billGap)),
       risk: risk.label,
@@ -906,7 +932,7 @@ function buildLocalChatReply(message, context) {
       : `에어컨 사용 시간이 0시간이라 냉방 쪽 절약 여지는 작아요. 대신 냉장고, 드라이기처럼 기본 가전 사용 습관 점검 메시지를 보여주는 게 좋아요.`;
   }
   if (/정속|인버터|소비전력|W/.test(text)) {
-    return `현재 에어컨 타입은 '${type}'으로 계산 중이에요. 소비전력을 비워두면 평균값으로 계산하고, 직접 입력하면 그 W 값을 백엔드 요청에 함께 보내요.`;
+    return `현재 에어컨 타입은 '${type}'으로 참고 입력돼 있어요. 소비전력을 직접 입력하면 백엔드 요청에 함께 보내지만, 화면에서는 사용 시간을 중심으로 설명해요.`;
   }
   return `지금 조건 기준 예상 요금은 ${bill}예요. 이 답변은 실제 고지서가 아니라 현재 입력값과 마포구 1인 가구 기준을 바탕으로 설명하는 참고 답변이에요.`;
 }
@@ -1599,6 +1625,7 @@ function init() {
     renderPrediction();
   });
   els.airconPowerInput?.addEventListener("input", () => {
+    state.referenceInputTouched = true;
     state.airconPowerW = getAirconPowerW();
     renderAirconPowerHint();
     renderPrediction();
@@ -1606,6 +1633,12 @@ function init() {
   els.airconPowerInput?.addEventListener("blur", () => {
     normalizeAirconPowerInput({ writeValue: true });
     renderPrediction();
+  });
+  els.airconTypeBlock?.addEventListener("toggle", () => {
+    if (els.airconTypeBlock.open && hasAirconUsage()) {
+      state.referenceInputTouched = true;
+    }
+    renderAirconPowerHint();
   });
   els.airconTypeButtons.forEach((button) => {
     button.addEventListener("click", () => setAirconType(button.dataset.airconType));
