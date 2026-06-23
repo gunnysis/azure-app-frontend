@@ -10,7 +10,9 @@ const AIRCON_TYPE_LABELS = {
 const API_BASE_URL = (
   window.SINGLE_ENERGY_API_BASE_URL || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
-const PREDICT_ENDPOINT = `${API_BASE_URL}/predict`;
+// 백엔드 어댑터 엔드포인트(무키): 에어컨 습관 페이로드를 받아 8개 ML 피처로
+// 변환·예측한다. 원시 /api/v1/predict(API Key 필수)가 아니라 이 경로를 호출한다.
+const PREDICT_ENDPOINT = `${API_BASE_URL}/api/v1/estimate`;
 
 const screens = [
   { id: "splash", label: "인트로", cta: "시작하기" },
