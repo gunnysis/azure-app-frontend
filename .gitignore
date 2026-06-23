@@ -1,0 +1,29 @@
+# 데이터 / 기획 문서 (원본 민감 파일)
+data.xlsx
+data.csv
+templ.docx
+
+# ML 아티팩트
+data_processed.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# 가상환경
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# 환경변수
+.env
+*.env
+
+# Azure
+.azure/
