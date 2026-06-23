@@ -11,6 +11,7 @@ const API_BASE_URL = (
   window.SINGLE_ENERGY_API_BASE_URL || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 const PREDICT_ENDPOINT = `${API_BASE_URL}/predict`;
+const CHAT_ENDPOINT = window.SINGLE_ENERGY_CHAT_API_URL || "/api/chat";
 
 const screens = [
   { id: "splash", label: "인트로", cta: "시작하기" },
@@ -28,6 +29,7 @@ const state = {
   lastPrediction: null,
   timers: [],
   hintTimer: null,
+  chatMessages: [],
 };
 
 const els = {
@@ -48,6 +50,19 @@ const els = {
   loadingTitle: document.querySelector("#loadingTitle"),
   loadingCopy: document.querySelector("#loadingCopy"),
   loadingSteps: [...document.querySelectorAll("[data-loading-step]")],
+  riskBadge: document.querySelector("#riskBadge"),
+  resultBillHero: document.querySelector("#resultBillHero"),
+  resultKwhNumber: document.querySelector("#resultKwhNumber"),
+  resultRiskText: document.querySelector("#resultRiskText"),
+  baselineKwhMini: document.querySelector("#baselineKwhMini"),
+  usageDelta: document.querySelector("#usageDelta"),
+  baselineKwh: document.querySelector("#baselineKwh"),
+  myKwh: document.querySelector("#myKwh"),
+  baselineUsageBar: document.querySelector("#baselineUsageBar"),
+  myUsageBar: document.querySelector("#myUsageBar"),
+  usageReason: document.querySelector("#usageReason"),
+  baselineBill: document.querySelector("#baselineBill"),
+  billDelta: document.querySelector("#billDelta"),
   shareReportCard: document.querySelector("#shareReportCard"),
   reportRiskPill: document.querySelector("#reportRiskPill"),
   reportTypeName: document.querySelector("#reportTypeName"),
@@ -74,6 +89,16 @@ const els = {
   summaryAirconType: document.querySelector("#summaryAirconType"),
   summaryAirconTypeWrap: document.querySelector("#summaryAirconTypeWrap"),
   summaryAirconPower: document.querySelector("#summaryAirconPower"),
+  contactBotButton: document.querySelector("#contactBotButton"),
+  contactBotPanel: document.querySelector("#contactBotPanel"),
+  contactCloseButton: document.querySelector("#contactCloseButton"),
+  chatMessages: document.querySelector("#chatMessages"),
+  chatForm: document.querySelector("#chatForm"),
+  chatInput: document.querySelector("#chatInput"),
+  demoQuestionButtons: [...document.querySelectorAll("[data-demo-question]")],
+  feedbackForm: document.querySelector("#feedbackForm"),
+  feedbackInput: document.querySelector("#feedbackInput"),
+  feedbackStatus: document.querySelector("#feedbackStatus"),
 };
 
 function numberOnly(value) {
@@ -356,6 +381,17 @@ function getRisk(kwh) {
   return { label: "안정", color: "#00a86b", text: "마포구 1인 가구 기준과 비슷해요." };
 }
 
+function getReason(payload, prediction) {
+  const gap = Math.round(prediction.predicted_kwh - BASELINE_KWH);
+  const hours = payload.aircon_hours_per_day;
+  const lead = hours > 0
+    ? `하루 ${formatHours(hours)}시간 에어컨 사용이 차이를 만든 주요 입력값이에요.`
+    : "에어컨을 쓰지 않는 조건이라 냉방 전력 부담은 낮게 잡혔어요.";
+  if (gap > 0) return `${lead} 평균보다 ${formatNumber(gap)}kWh 더 높게 예측됐어요.`;
+  if (gap < 0) return `${lead} 평균보다 ${formatNumber(Math.abs(gap))}kWh 낮게 예측됐어요.`;
+  return `${lead} 마포 평균 사용량과 거의 비슷해 보여요.`;
+}
+
 function getReportProfile(payload, prediction) {
   const gap = prediction.predicted_kwh - BASELINE_KWH;
   const hours = payload.aircon_hours_per_day;
@@ -571,10 +607,35 @@ function renderPrediction(prediction = state.lastPrediction) {
   const risk = getRisk(result.predicted_kwh);
   const usageGap = Math.round(result.predicted_kwh - BASELINE_KWH);
   const billGap = Math.round(result.estimated_bill - BASELINE_BILL);
+  const usageMax = Math.max(260, result.predicted_kwh, BASELINE_KWH);
   const tips = getTipCandidates(payload, result);
   const topTip = tips[0];
   const profile = getReportProfile(payload, result);
   const billMax = Math.max(result.estimated_bill, BASELINE_BILL, 1);
+
+  els.resultKwhNumber.textContent = formatNumber(result.predicted_kwh);
+  els.resultBillHero.textContent = formatBillRange(result.estimated_bill);
+  els.resultRiskText.textContent =
+    usageGap > 0
+      ? `마포 평균보다 ${formatNumber(Math.abs(usageGap))}kWh 더 쓰고, 요금은 ${formatGapRange(Math.abs(billGap))} 더 나올 수 있어요.`
+      : usageGap < 0
+        ? `마포 평균보다 ${formatNumber(Math.abs(usageGap))}kWh 덜 쓰고, 요금은 ${formatGapRange(Math.abs(billGap))} 낮을 수 있어요.`
+        : "마포 평균 사용량과 거의 비슷하게 예측됐어요.";
+  els.riskBadge.textContent = risk.label;
+  els.riskBadge.style.color = risk.color;
+  els.riskBadge.style.background = `${risk.color}1f`;
+  els.baselineKwhMini.textContent = formatNumber(BASELINE_KWH);
+  els.usageDelta.textContent = formatSignedKwh(usageGap);
+  els.usageDelta.style.color = usageGap > 0 ? risk.color : usageGap < 0 ? "#00a86b" : "var(--strong)";
+  els.baselineKwh.textContent = `${formatNumber(BASELINE_KWH)}kWh`;
+  els.myKwh.textContent = `${formatNumber(result.predicted_kwh)}kWh`;
+  els.baselineUsageBar.style.width = `${Math.max(26, (BASELINE_KWH / usageMax) * 100)}%`;
+  els.myUsageBar.style.width = `${Math.max(26, (result.predicted_kwh / usageMax) * 100)}%`;
+  els.myUsageBar.style.background = risk.color;
+  els.usageReason.textContent = getReason(payload, result);
+  els.baselineBill.textContent = formatBillRange(BASELINE_BILL);
+  els.billDelta.textContent = `${billGap >= 0 ? "+" : "-"}${formatGapRange(Math.abs(billGap))}`;
+  els.billDelta.style.color = billGap >= 0 ? risk.color : "#00a86b";
 
   els.shareReportCard.dataset.profile = profile.key;
   els.shareReportCard.style.setProperty("--profile", risk.color);
@@ -736,6 +797,186 @@ function setTheme(theme) {
   if (!els.themeButton) return;
   els.themeButton.textContent = theme === "dark" ? "라이트" : "다크";
   els.themeButton.setAttribute("aria-label", theme === "dark" ? "라이트 모드로 보기" : "다크 모드로 보기");
+}
+
+function toggleContactPanel(forceOpen) {
+  if (!els.contactBotButton || !els.contactBotPanel) return;
+  const nextOpen = typeof forceOpen === "boolean" ? forceOpen : els.contactBotPanel.hidden;
+  els.contactBotPanel.hidden = !nextOpen;
+  els.contactBotButton.setAttribute("aria-expanded", String(nextOpen));
+  if (nextOpen) {
+    setTimeout(() => els.chatInput?.focus(), 80);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function appendChatMessage(role, content, { pending = false } = {}) {
+  if (!els.chatMessages) return null;
+  const item = document.createElement("div");
+  item.className = `chat-message ${role}${pending ? " is-pending" : ""}`;
+  item.innerHTML = `
+    <span>${role === "user" ? "나" : "찌릿"}</span>
+    <p>${escapeHtml(content)}</p>
+  `;
+  els.chatMessages.appendChild(item);
+  els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+  return item;
+}
+
+function getChatContext() {
+  const payload = buildPayload();
+  const prediction = state.lastPrediction || localMockPredict(payload);
+  const risk = getRisk(prediction.predicted_kwh);
+  const billGap = Math.round(prediction.estimated_bill - BASELINE_BILL);
+  const usageGap = Math.round(prediction.predicted_kwh - BASELINE_KWH);
+  return {
+    service: "마포구 원룸 1인 가구 전기요금 예측 서비스 '찌릿'",
+    payload,
+    prediction: {
+      predicted_kwh: prediction.predicted_kwh,
+      estimated_bill_range: formatBillRange(prediction.estimated_bill),
+      baseline_kwh: BASELINE_KWH,
+      baseline_bill_range: formatBillRange(BASELINE_BILL),
+      usage_gap_kwh: usageGap,
+      bill_gap_range: formatGapRange(Math.abs(billGap)),
+      risk: risk.label,
+    },
+    visible_report: {
+      type: els.reportTypeName?.textContent?.trim() || "",
+      one_line: els.reportOneLine?.textContent?.trim() || "",
+      reason: els.shareReason?.textContent?.trim() || "",
+      mission: els.shareMission?.textContent?.trim() || "",
+    },
+  };
+}
+
+function buildLocalChatReply(message, context) {
+  const text = message.replace(/\s+/g, " ").trim();
+  const { payload, prediction } = context;
+  const hours = payload.aircon_hours_per_day;
+  const bill = prediction.estimated_bill_range;
+  const risk = prediction.risk;
+  const type = AIRCON_TYPE_LABELS[payload.aircon_type] || "잘 모름";
+
+  if (/왜|이유|위험|주의/.test(text)) {
+    return `현재 결과가 '${risk}'으로 나온 핵심 이유는 하루 에어컨 사용 시간이 ${formatHours(hours)}시간으로 들어갔기 때문이에요. 예상 사용량은 ${formatNumber(prediction.predicted_kwh)}kWh이고, 예상 요금은 ${bill} 범위로 보여요.`;
+  }
+  if (/줄|절약|아끼|낮/.test(text)) {
+    return hours > 0
+      ? `가장 먼저 할 일은 취침 전 예약 종료예요. 지금 입력값 기준에서는 에어컨 사용 시간을 줄이는 행동이 예측에 가장 직접적으로 반영돼요.`
+      : `에어컨 사용 시간이 0시간이라 냉방 쪽 절약 여지는 작아요. 대신 냉장고, 드라이기처럼 기본 가전 사용 습관 점검 메시지를 보여주는 게 좋아요.`;
+  }
+  if (/정속|인버터|소비전력|W/.test(text)) {
+    return `현재 에어컨 타입은 '${type}'으로 계산 중이에요. 소비전력을 비워두면 평균값으로 계산하고, 직접 입력하면 그 W 값을 백엔드 요청에 함께 보내요.`;
+  }
+  return `지금 조건 기준 예상 요금은 ${bill}예요. 이 답변은 실제 고지서가 아니라 현재 입력값과 마포구 1인 가구 기준을 바탕으로 설명하는 참고 답변이에요.`;
+}
+
+async function requestChatReply(message) {
+  const context = getChatContext();
+  const history = state.chatMessages.slice(-6);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 9000);
+  try {
+    const response = await fetch(CHAT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, context, history }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error("chat request failed");
+    const data = await response.json();
+    if (!data.reply) throw new Error("chat reply missing");
+    return data.reply;
+  } catch (error) {
+    console.warn("[single-energy] Falling back to local chat reply.", error.message);
+    return buildLocalChatReply(message, context);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function sendChatMessage(message) {
+  const cleaned = String(message || "").trim();
+  if (!cleaned) return;
+
+  if (els.chatInput) els.chatInput.value = "";
+  appendChatMessage("user", cleaned);
+  state.chatMessages.push({ role: "user", content: cleaned });
+
+  const pending = appendChatMessage("bot", "입력값이랑 리포트를 같이 보고 있어요...", { pending: true });
+  els.chatForm?.querySelector("button")?.setAttribute("disabled", "true");
+  els.demoQuestionButtons.forEach((button) => {
+    button.disabled = true;
+  });
+  try {
+    const reply = await requestChatReply(cleaned);
+    if (pending) {
+      pending.classList.remove("is-pending");
+      pending.querySelector("p").textContent = reply;
+    } else {
+      appendChatMessage("bot", reply);
+    }
+    state.chatMessages.push({ role: "assistant", content: reply });
+  } finally {
+    els.chatForm?.querySelector("button")?.removeAttribute("disabled");
+    els.demoQuestionButtons.forEach((button) => {
+      button.disabled = false;
+    });
+  }
+}
+
+async function handleChatSubmit(event) {
+  event.preventDefault();
+  const message = els.chatInput?.value.trim();
+  if (!message) return;
+  await sendChatMessage(message);
+}
+
+function buildFeedbackBody(message) {
+  const context = getChatContext();
+  const payload = context.payload;
+  const prediction = context.prediction;
+  return [
+    "[찌릿 오류/피드백 제보]",
+    "",
+    `피드백 내용: ${message || "내용 미입력"}`,
+    "",
+    "[현재 리포트 상태]",
+    `예상 사용량: ${prediction.predicted_kwh}kWh`,
+    `예상 요금: ${prediction.estimated_bill_range}`,
+    `위험도: ${prediction.risk}`,
+    `기준 대비 사용량: ${prediction.usage_gap_kwh}kWh`,
+    `기준 대비 요금 차이: ${prediction.bill_gap_range}`,
+    "",
+    "[사용자 입력값]",
+    "지역: 마포구",
+    "주거/가구: 원룸 / 1인",
+    `에어컨 사용 시간: ${payload.aircon_hours_per_day}시간`,
+    `에어컨 타입: ${AIRCON_TYPE_LABELS[payload.aircon_type] || payload.aircon_type}`,
+    `소비전력: ${payload.aircon_power_w || "평균값"}W`,
+    "",
+    `[페이지] ${location.href}`,
+  ].join("\n");
+}
+
+function handleFeedbackSubmit(event) {
+  event.preventDefault();
+  const message = els.feedbackInput?.value.trim() || "";
+  const subject = encodeURIComponent("[찌릿] 오류/피드백 제보");
+  const body = encodeURIComponent(buildFeedbackBody(message));
+  window.location.href = `mailto:letgojh@gmail.com?subject=${subject}&body=${body}`;
+  if (els.feedbackStatus) {
+    els.feedbackStatus.textContent = "메일 앱이 열리면 내용을 확인하고 전송해 주세요.";
+  }
 }
 
 function setShareStatus(message) {
@@ -1310,6 +1551,19 @@ function init() {
   els.airconTypeButtons.forEach((button) => {
     button.addEventListener("click", () => setAirconType(button.dataset.airconType));
   });
+  els.contactBotButton?.addEventListener("click", () => toggleContactPanel());
+  els.contactCloseButton?.addEventListener("click", () => toggleContactPanel(false));
+  els.chatForm?.addEventListener("submit", handleChatSubmit);
+  els.chatInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      els.chatForm?.requestSubmit();
+    }
+  });
+  els.demoQuestionButtons.forEach((button) => {
+    button.addEventListener("click", () => sendChatMessage(button.dataset.demoQuestion));
+  });
+  els.feedbackForm?.addEventListener("submit", handleFeedbackSubmit);
   els.backButton.addEventListener("click", () => goTo(state.index - 1));
   els.nextButton.addEventListener("click", goNext);
   els.saveImageButton.addEventListener("click", saveReportImage);
@@ -1327,6 +1581,7 @@ function init() {
     buildPayload,
     calculateElectricBill,
     getPredictEndpoint: () => PREDICT_ENDPOINT,
+    getChatEndpoint: () => CHAT_ENDPOINT,
   };
 }
 

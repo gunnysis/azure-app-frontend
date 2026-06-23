@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>찌릿</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260623-brand-svg" />
-    <link rel="stylesheet" href="./styles.css?v=20260623-brand-svg" />
+    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260623-pdf-splash" />
+    <link rel="stylesheet" href="./styles.css?v=20260623-pdf-splash" />
   </head>
   <body data-theme="light" data-current-screen="splash">
     <main class="stage">
@@ -30,8 +30,13 @@
         <section class="screens">
           <article class="screen active splash-screen" data-screen="splash">
             <div class="splash-wrap" aria-label="찌릿 서비스 시작 화면">
-              <div class="jjirit-logo-lockup">
-                <img class="jjirit-wordmark" src="./assets/brand/jjirit-logo.svg" alt="찌릿, 전기세 찌릿하기 전" />
+              <div class="splash-brand-hero">
+                <img class="splash-app-icon" src="./assets/brand/jjirit-icon.svg" alt="찌릿이 캐릭터" />
+                <h1>찌릿</h1>
+                <p>전기세 찌릿하기 전에</p>
+                <div class="splash-fixed-copy">
+                  에어컨 시간만 알려주면<br />예상 요금을 바로 보여줘요
+                </div>
               </div>
             </div>
           </article>
@@ -127,6 +132,55 @@
               </div>
               <h2 id="loadingTitle">찌릿이가 이번 달 전기세를 읽고 있어요</h2>
               <p id="loadingCopy">사용 시간과 마포구 기준값을 맞춰보고 있어요.</p>
+            </div>
+          </article>
+
+          <article class="screen" data-screen="result" hidden>
+            <div class="result-report-card">
+              <div class="result-hero">
+                <div>
+                  <span>이번 달 예상 전기요금</span>
+                  <strong id="resultBillHero">25,900 ~ 35,900원</strong>
+                  <p id="resultRiskText">마포 평균보다 24kWh 더 쓰고, 요금은 약간 높게 나올 수 있어요.</p>
+                </div>
+                <div class="result-badge" id="riskBadge">주의</div>
+              </div>
+
+              <div class="result-impact-grid">
+                <div>
+                  <span>예상 사용량</span>
+                  <strong><b id="resultKwhNumber">189</b>kWh</strong>
+                </div>
+                <div>
+                  <span>마포 기준</span>
+                  <strong><b id="baselineKwhMini">165</b>kWh</strong>
+                </div>
+                <div>
+                  <span>사용량 차이</span>
+                  <strong id="usageDelta">+24kWh</strong>
+                </div>
+                <div>
+                  <span>요금 차이</span>
+                  <strong id="billDelta">+0 ~ 8,900원</strong>
+                </div>
+              </div>
+
+              <div class="bar-compare" aria-label="기준 사용량과 내 예상 사용량 비교">
+                <div class="bar-row baseline">
+                  <span>기준 사용량</span>
+                  <div class="bar-track"><i id="baselineUsageBar"></i></div>
+                  <b id="baselineKwh">165kWh</b>
+                </div>
+                <div class="bar-row mine">
+                  <span>내 예상</span>
+                  <div class="bar-track"><i id="myUsageBar"></i></div>
+                  <b id="myKwh">189kWh</b>
+                </div>
+              </div>
+
+              <p id="usageReason">에어컨을 하루 4시간 사용하는 조건이라 기준보다 약 24kWh 높게 계산했어요.</p>
+              <small>정확한 고지서가 아니라, 지금 조건으로 미리 보는 예상값이에요.</small>
+              <span id="baselineBill" hidden>21,200 ~ 31,200원</span>
             </div>
           </article>
 
@@ -229,6 +283,46 @@
           <button class="ghost-button" type="button" id="backButton">이전</button>
           <button class="primary-button" type="button" id="nextButton">시작하기</button>
         </nav>
+
+        <div class="contact-widget" aria-label="상담 챗봇 목업">
+          <button class="contact-bot" type="button" id="contactBotButton" aria-expanded="false" aria-controls="contactBotPanel">
+            <span>?</span>
+            <strong>상담</strong>
+          </button>
+          <div class="contact-panel" id="contactBotPanel" role="dialog" aria-label="찌릿 상담봇 안내" hidden>
+            <div class="contact-panel-header">
+              <strong>찌릿 상담봇</strong>
+              <button type="button" id="contactCloseButton" aria-label="상담창 닫기">×</button>
+            </div>
+            <div class="chat-messages" id="chatMessages" aria-live="polite">
+              <div class="chat-message bot">
+                <span>찌릿</span>
+                <p>전기세 리포트가 헷갈리면 물어봐 주세요. 지금 화면의 입력값과 예측 결과를 기준으로 답할게요.</p>
+              </div>
+            </div>
+            <div class="chat-quick-actions" aria-label="추천 질문">
+              <button type="button" data-demo-question="왜 위험으로 나왔어?">왜 위험?</button>
+              <button type="button" data-demo-question="어떻게 줄이면 돼?">절약 방법</button>
+              <button type="button" data-demo-question="이 요금 믿어도 돼?">믿어도 돼?</button>
+              <button type="button" data-demo-question="인버터면 뭐가 달라?">인버터 차이</button>
+            </div>
+            <form class="chat-form" id="chatForm">
+              <label class="sr-only" for="chatInput">상담 메시지 입력</label>
+              <textarea id="chatInput" rows="1" placeholder="예: 왜 위험으로 나왔어?"></textarea>
+              <button type="submit">보내기</button>
+            </form>
+            <details class="feedback-box">
+              <summary>오류/피드백 제보</summary>
+              <form id="feedbackForm">
+                <label class="sr-only" for="feedbackInput">오류 또는 피드백 내용</label>
+                <textarea id="feedbackInput" rows="2" placeholder="예: 예상 요금 범위가 이상해요."></textarea>
+                <button type="submit">메일로 보내기</button>
+              </form>
+              <p id="feedbackStatus" role="status" aria-live="polite"></p>
+            </details>
+            <small>AI 답변은 참고용이며 실제 청구요금과 다를 수 있어요.</small>
+          </div>
+        </div>
       </section>
     </main>
     <script src="./config.js?v=20260623-brand-svg"></script>
