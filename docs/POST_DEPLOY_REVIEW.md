@@ -66,7 +66,7 @@
 
 | # | 항목 | 근거 | §5 게이트 무관? | 권고 |
 |---|---|---|---|---|
-| F-1 | ✅ `actions/checkout@v3` → `@v4` 상향 **완료** | 배포 Actions annotation: *"Node.js 20 is deprecated … checkout@v3 … forced to run on Node.js 24"* | ✅ 무관 | 적용·커밋 완료 |
+| F-1 | ✅ `actions/checkout@v3` → `@v5` 상향 **완료** | 배포 Actions annotation: *"Node.js 20 is deprecated … forced to run on Node.js 24"* | ✅ 무관 | `@v4`는 Node20 타깃이라 경고 잔존(실측) → **Node24 타깃 `@v5`로 해소** |
 | F-2 | 리포트 이미지 export / CSP 회귀 검증 | `staticwebapp.config.json` CSP `img-src blob:` 적용 — 이미 배포됨 | ✅ 무관 | SWA URL에서 "이미지 저장/공유" 동작 + CSP 위반 로그 0건 확인 |
 
 > F-1·F-2는 백엔드 계약(§5)과 무관하므로 **지금 바로 진행 가능**한 작업이다.
@@ -89,7 +89,7 @@
 | 후보 | 작업 | 선행 | 비고 |
 |---|---|---|---|
 | **A** | `docs/` 문서 검토분 커밋 | — | `DEPLOYMENT.md` 갱신분 push 시 무해한 .md 재배포 1회 발생 |
-| ~~B~~ | ✅ `actions/checkout@v3 → @v4` 상향(F-1) — **완료** | — | 적용·커밋 완료 |
+| ~~B~~ | ✅ `actions/checkout@v3 → @v5` 상향(F-1) — **완료** | — | @v4 무효 확인 후 @v5로 적용·커밋 완료 |
 | **C** | SWA 호스트네임으로 §2.1 채우고 E2E·이미지 export 검증 안내(F-2) | 호스트네임 제공 | F-2는 호스트네임만 있으면 가능 |
 | **D** | API 경로/인증/CORS/페이로드 정합(§5-#1·#2·#3) | 백엔드 팀 합의 | 출시 게이트. 합의 후 `script.js`·`API_CONTRACT.md` 동기화 |
 

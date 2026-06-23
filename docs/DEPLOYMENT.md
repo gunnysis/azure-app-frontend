@@ -196,7 +196,7 @@ with:
 **현재 정본(`azure-static-web-apps-thankful-desert-0cdb08500.yml`)의 핵심 `with:` — 적용 후:**
 
 ```yaml
-      - uses: actions/checkout@v4   # ✅ @v3→@v4 상향(Node20 폐기 대응)
+      - uses: actions/checkout@v5   # ✅ @v3→@v5 상향(Node24 타깃, Node20 폐기 해소)
         with:
           submodules: true
           lfs: false
@@ -218,8 +218,8 @@ with:
 | `output_location` | `"/"` → `""` | 빌드 산출물 없음을 의미상 정확히 표현 |
 | `skip_app_build` | (없음) → `true` | Oryx 빌드 단계 생략 — Actions 로그에서 빌드 없이 업로드 확인 |
 
-**✅ 후속 검토 항목 해소 — `actions/checkout@v3` → `@v4` 상향 완료:**
-> 2026-06-23 배포 Actions annotation(*"Node.js 20 is deprecated … checkout@v3 … forced to run on Node.js 24"*)에 따라 **`@v4`로 상향 적용**했다. CI 설정 변경이라 §5 게이트와 무관하게 진행.
+**✅ 후속 검토 항목 해소 — `actions/checkout@v3` → `@v5` 상향 완료:**
+> 2026-06-23 배포 Actions annotation(*"Node.js 20 is deprecated … forced to run on Node.js 24"*)에 따라 상향했다. ⚠️ **주의:** `@v4`는 v3과 동일하게 **Node 20을 타깃**이라 경고가 그대로 남았다(실측). 경고를 실제로 없애려면 **Node 24를 타깃하는 `@v5`** 가 필요해 최종 `@v5`로 적용했다. CI 설정 변경이라 §5 게이트와 무관하게 진행.
 
 > **시크릿:** 정본은 실제 시크릿명(`...THANKFUL_DESERT_0CDB08500`)을 정확히 참조 → 추가 조치 불필요.
 > **OIDC 전환 시(선택):** `permissions: id-token: write` + `github_id_token` 입력 추가. 장기 비밀값 제거로 더 안전.
@@ -320,7 +320,7 @@ window.SINGLE_ENERGY_API_BASE_URL =
 [ ] 5. (필수) 인증/CORS 정책 결정 및 적용 (§5-#2, §5.1)
 [x] 6a. ✅ staticwebapp.config.json(산출물 B, §3.1) 루트 추가·배포 완료
 [x] 6b. ✅ 정본 워크플로 빌드리스 강건화 — skip_app_build:true·output_location:"" 적용·배포 완료(§3.2)
-[x] 6c. ✅ actions/checkout@v3 → @v4 상향 완료 — Node20 폐기 대응(§3.2)
+[x] 6c. ✅ actions/checkout@v3 → @v5 상향 완료 — Node20 폐기 해소(@v4는 무효, @v5 필요)(§3.2)
 [x] 7. ✅ 커밋 fd752d4 → main push → Actions `Build and Deploy` green (2026-06-23)
 [ ] 8. SWA URL 접속 → 화면 동작 + 실제 예측(백엔드 200 응답) E2E 확인 — **§5 합의 후**
 [ ] 9. 콘솔/네트워크 확인 — fallback 경고 없음 + 응답 200 + CSP 위반 없음 — **§5 합의 후**
