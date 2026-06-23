@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>찌릿</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260623-pdf-splash" />
-    <link rel="stylesheet" href="./styles.css?v=20260623-pdf-splash" />
+    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260623-flow-polish" />
+    <link rel="stylesheet" href="./styles.css?v=20260623-flow-polish" />
   </head>
   <body data-theme="light" data-current-screen="splash">
     <main class="stage">
@@ -33,10 +33,6 @@
               <div class="splash-brand-hero">
                 <img class="splash-app-icon" src="./assets/brand/jjirit-icon.svg" alt="찌릿이 캐릭터" />
                 <h1>찌릿</h1>
-                <p>전기세 찌릿하기 전에</p>
-                <div class="splash-fixed-copy">
-                  에어컨 시간만 알려주면<br />예상 요금을 바로 보여줘요
-                </div>
               </div>
             </div>
           </article>
@@ -58,7 +54,6 @@
           <article class="screen" data-screen="airconTime">
             <div class="section-head">
               <h2>에어컨은 하루에 얼마나 쓰나요?</h2>
-              <p class="plain-copy">여름철 하루 평균 기준으로 골라주세요.</p>
             </div>
 
             <div class="range-card aircon-time-card">
@@ -80,40 +75,40 @@
                 </div>
               </div>
 
-              <p id="airconTimeHint">하루 4시간이면 한 달 약 120시간 사용으로 계산해요.</p>
+              <p id="airconTimeHint" hidden></p>
             </div>
 
-            <div class="aircon-type-card" id="airconTypeBlock">
-              <span>에어컨 종류</span>
-              <div class="aircon-type-options" role="radiogroup" aria-label="에어컨 종류 선택">
-                <button type="button" data-aircon-type="fixed" aria-pressed="false">
+            <div class="aircon-type-card mock-only" id="airconTypeBlock">
+              <span>참고용 입력</span>
+              <div class="aircon-type-options" role="group" aria-label="에어컨 종류 참고용 선택">
+                <button type="button" data-aircon-type="fixed" aria-pressed="false" aria-disabled="true" disabled>
                   <strong>정속형</strong>
                   <small>켜졌다 꺼지는 방식</small>
                 </button>
-                <button type="button" data-aircon-type="inverter" aria-pressed="false">
+                <button type="button" data-aircon-type="inverter" aria-pressed="false" aria-disabled="true" disabled>
                   <strong>인버터</strong>
                   <small>전력을 조절하는 방식</small>
                 </button>
-                <button class="active" type="button" data-aircon-type="unknown" aria-pressed="true">
+                <button class="active" type="button" data-aircon-type="unknown" aria-pressed="true" aria-disabled="true" disabled>
                   <strong>잘 모르겠어요</strong>
                   <small>평균값으로 계산</small>
                 </button>
               </div>
             </div>
 
-            <details class="advanced-input">
+            <details class="advanced-input mock-only" open>
               <summary>
-                <strong>소비전력도 입력할래요</strong>
+                <strong>소비전력 입력</strong>
               </summary>
               <div class="advanced-input-body">
                 <label class="power-field" for="airconPowerInput">
                   <span>에어컨 소비전력</span>
                   <div>
-                    <input id="airconPowerInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="예: 650" />
+                    <input id="airconPowerInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="예: 650" aria-disabled="true" disabled />
                     <b>W</b>
                   </div>
                 </label>
-                <p id="airconPowerHint">모르면 비워둬도 괜찮아요. 평균값으로 계산해요.</p>
+                <p id="airconPowerHint">현재 MVP에서는 에어컨 사용 시간만 예측에 사용해요.</p>
               </div>
             </details>
 
@@ -121,6 +116,7 @@
 
           <article class="screen" data-screen="loading">
             <div class="loading-wrap">
+              <img class="loading-mascot" src="./assets/brand/jjirit-icon.svg" alt="찌릿이 캐릭터" />
               <div class="meter-scene" aria-hidden="true">
                 <div class="meter-phone">
                   <span></span>
@@ -130,8 +126,8 @@
                 <div class="orbit-dot dot-one"></div>
                 <div class="orbit-dot dot-two"></div>
               </div>
-              <h2 id="loadingTitle">찌릿이가 이번 달 전기세를 읽고 있어요</h2>
-              <p id="loadingCopy">사용 시간과 마포구 기준값을 맞춰보고 있어요.</p>
+              <h2 id="loadingTitle">사용자 응답을<br />확인하고 있어요</h2>
+              <p id="loadingCopy" hidden></p>
             </div>
           </article>
 

@@ -15,7 +15,6 @@ const CHAT_ENDPOINT = window.SINGLE_ENERGY_CHAT_API_URL || "/api/chat";
 
 const screens = [
   { id: "splash", label: "인트로", cta: "시작하기" },
-  { id: "start", label: "시작", cta: "예측 시작하기" },
   { id: "airconTime", label: "사용 시간", cta: "예상 요금 보기" },
   { id: "loading", label: "분석", cta: "계산 중" },
   { id: "report", label: "리포트", cta: "처음으로 돌아가기" },
@@ -30,6 +29,7 @@ const state = {
   timers: [],
   hintTimer: null,
   chatMessages: [],
+  airconTimeTouched: false,
 };
 
 const els = {
@@ -236,18 +236,18 @@ function syncAirconPowerState() {
   const container = els.airconPowerInput?.closest(".advanced-input");
   const typeBlock = els.airconTypeBlock;
   if (els.airconPowerInput) {
-    els.airconPowerInput.disabled = disabled;
-    els.airconPowerInput.setAttribute("aria-disabled", String(disabled));
+    els.airconPowerInput.disabled = true;
+    els.airconPowerInput.setAttribute("aria-disabled", "true");
   }
   if (container) {
     container.hidden = disabled;
-    if (disabled) container.open = false;
+    container.open = !disabled;
   }
   if (typeBlock) {
     typeBlock.hidden = disabled;
   }
-  container?.classList.toggle("is-disabled", disabled);
-  container?.setAttribute("aria-disabled", String(disabled));
+  container?.classList.toggle("is-disabled", true);
+  container?.setAttribute("aria-disabled", "true");
   if (disabled) {
     state.airconPowerW = 0;
     state.airconType = "none";
@@ -278,6 +278,7 @@ function getAirconHoursFromClientX(clientX) {
 
 function updateAirconHoursFromClientX(clientX) {
   if (els.airconHoursRange.disabled) return;
+  state.airconTimeTouched = true;
   setAirconHoursValue(getAirconHoursFromClientX(clientX));
 }
 
@@ -523,9 +524,18 @@ function renderAirconTimeHint() {
   els.airconHoursRange.style.setProperty("--range-color", color);
   els.airconHoursRange.style.setProperty("--range-soft", `${color}22`);
   card?.style.setProperty("--time-color", color);
+
+  if (!state.airconTimeTouched) {
+    els.airconTimeHint.hidden = true;
+    els.airconTimeHint.textContent = "";
+    els.airconTimeHint.classList.remove("is-pending");
+    return;
+  }
+
+  els.airconTimeHint.hidden = false;
   els.airconTimeHint.textContent =
     hours === 0
-      ? "0시간이면 에어컨 미사용으로 계산하고, 추가 입력은 숨길게요."
+      ? "0시간은 에어컨 미사용 기준으로 계산해요."
       : `하루 ${formatHours(hours)}시간이면 한 달 약 ${formatNumber(hours * 30)}시간 사용으로 계산해요.`;
   els.airconTimeHint.classList.remove("is-pending");
 }
@@ -541,12 +551,18 @@ function scheduleAirconTimeHint() {
   els.airconHoursRange.style.setProperty("--range-soft", `${color}22`);
   card?.style.setProperty("--time-color", color);
 
+  if (!state.airconTimeTouched) {
+    renderAirconTimeHint();
+    return;
+  }
+
   if (state.hintTimer) clearTimeout(state.hintTimer);
+  els.airconTimeHint.hidden = false;
   els.airconTimeHint.classList.add("is-pending");
   els.airconTimeHint.textContent =
     hours === 0
       ? "에어컨을 쓰지 않는 조건으로 계산할게요."
-      : "시간을 정하면 한 달 기준으로 계산해볼게요.";
+      : "선택한 시간으로 한 달 기준을 맞추고 있어요.";
   state.hintTimer = setTimeout(() => {
     state.hintTimer = null;
     renderAirconTimeHint();
@@ -556,15 +572,10 @@ function scheduleAirconTimeHint() {
 function renderAirconPowerHint() {
   if (!els.airconPowerHint) return;
   if (!hasAirconUsage()) {
-    els.airconPowerHint.textContent = "0시간이면 소비전력은 0으로 보내요.";
+    els.airconPowerHint.textContent = "에어컨 미사용 시 참고 입력은 숨겨요.";
     return;
   }
-  const powerW = getAirconPowerW();
-  if (!powerW) {
-    els.airconPowerHint.textContent = "모르면 비워둬도 괜찮아요. 백엔드가 평균 소비전력을 사용해요.";
-    return;
-  }
-  els.airconPowerHint.textContent = `${formatNumber(powerW)}W 기준으로 예측 요청에 함께 보낼게요.`;
+  els.airconPowerHint.textContent = "현재 MVP에서는 에어컨 사용 시간만 예측에 사용해요.";
 }
 
 function formatTipBadge(tip) {
@@ -680,8 +691,18 @@ function renderPrediction(prediction = state.lastPrediction) {
 }
 
 function setLoadingStep(step) {
-  els.loadingTitle.textContent = "찌릿이가 이번 달 전기세를 읽고 있어요";
-  els.loadingCopy.textContent = step >= 2 ? "거의 다 됐어요." : "입력한 조건으로 요금 범위를 계산하고 있어요.";
+  const titles = [
+    "사용자 응답을\n확인하고 있어요",
+    "입력값을\n분석하고 있어요",
+    "마포구 1인 가구 기준과\n비교하고 있어요",
+    "리포트를\n준비하고 있어요",
+  ];
+  const title = titles[Math.min(step, titles.length - 1)];
+  els.loadingTitle.innerHTML = title.replace(/\n/g, "<br />");
+  if (els.loadingCopy) {
+    els.loadingCopy.hidden = true;
+    els.loadingCopy.textContent = "";
+  }
   els.loadingSteps.forEach((item, index) => item.classList.toggle("active", index <= step));
 }
 
@@ -717,15 +738,17 @@ async function runLoading() {
   const minimumReadingTime = delay(3200);
 
   setLoadingStep(0);
-  await delay(1050);
+  await delay(850);
   setLoadingStep(1);
-  await delay(1050);
+  await delay(850);
   setLoadingStep(2);
+  await delay(850);
+  setLoadingStep(3);
 
   const [prediction] = await Promise.all([request, minimumReadingTime]);
   state.lastPrediction = prediction;
   renderPrediction(prediction);
-  goTo(4);
+  goTo(screens.findIndex((screen) => screen.id === "report"));
 }
 
 function goNext() {
@@ -736,11 +759,11 @@ function goNext() {
     normalizeAirconPowerInput();
     renderAirconTimeHint();
     renderPrediction();
-    goTo(3);
+    goTo(screens.findIndex((screen) => screen.id === "loading"));
     return;
   }
   if (current === "report") {
-    goTo(1);
+    goTo(0);
     return;
   }
   goTo(state.index + 1);
@@ -1528,9 +1551,11 @@ async function shareReportImage() {
 function init() {
   bindAirconRangeDrag();
   els.airconHoursInput.addEventListener("input", () => {
+    state.airconTimeTouched = true;
     setAirconHoursValue(getAirconHours());
   });
   els.airconHoursRange.addEventListener("input", () => {
+    state.airconTimeTouched = true;
     setAirconHoursValue(numberOnly(els.airconHoursRange.value));
   });
   els.airconHoursInput.addEventListener("blur", () => {
@@ -1568,7 +1593,7 @@ function init() {
   els.nextButton.addEventListener("click", goNext);
   els.saveImageButton.addEventListener("click", saveReportImage);
   els.shareImageButton.addEventListener("click", shareReportImage);
-  els.resetReportButton?.addEventListener("click", () => goTo(1));
+  els.resetReportButton?.addEventListener("click", () => goTo(0));
   setTheme("light");
   normalizeAirconHoursInput();
   syncAirconPowerState();
