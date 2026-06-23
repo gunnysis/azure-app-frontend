@@ -251,7 +251,7 @@ body[data-current-screen="splash"] .topbar {
 
 .screen.active {
   display: block;
-  animation: screen-in 180ms ease both;
+  animation: screen-in 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
 .screen[data-screen="airconTime"] {
@@ -488,10 +488,12 @@ body[data-current-screen="splash"] .topbar {
 @keyframes screen-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    filter: blur(10px);
+    transform: translateY(12px) scale(0.985);
   }
   to {
     opacity: 1;
+    filter: blur(0);
     transform: translateY(0);
   }
 }
@@ -931,6 +933,16 @@ h2 {
   margin-bottom: 12px;
 }
 
+.section-head p {
+  margin-top: 8px;
+  max-width: 320px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 820;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
 .range-card,
 .comparison-card,
 .bill-card,
@@ -1151,9 +1163,11 @@ h2 {
   border-radius: 18px;
   background: color-mix(in srgb, var(--time-color) 10%, var(--card));
   color: var(--time-color);
-  font-size: 15px;
+  font-size: clamp(13px, 3.4vw, 15px);
   font-weight: 900;
   line-height: 1.45;
+  text-align: center;
+  white-space: nowrap;
   transition: color 180ms ease, background 180ms ease, opacity 180ms ease, transform 180ms ease;
 }
 
@@ -1174,7 +1188,8 @@ h2 {
   overflow: hidden;
 }
 
-.aircon-type-card {
+.aircon-type-card,
+.aircon-reference-card {
   margin-top: 9px;
   padding: 12px;
   border-radius: 24px;
@@ -1183,20 +1198,39 @@ h2 {
 }
 
 .aircon-type-card.mock-only,
+.aircon-reference-card.mock-only,
 .advanced-input.mock-only {
   background: color-mix(in srgb, var(--surface) 84%, var(--card));
 }
 
 .aircon-type-card[hidden],
+.aircon-reference-card[hidden],
 .advanced-input[hidden] {
   display: none !important;
 }
 
-.aircon-type-card > span {
-  display: block;
+.reference-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 8px;
+}
+
+.aircon-type-card > span,
+.reference-card-head span {
+  display: block;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 900;
+}
+
+.reference-card-head b {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blue) 10%, var(--card));
+  color: var(--blue);
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -1218,6 +1252,10 @@ h2 {
   border: 1.5px solid color-mix(in srgb, var(--line) 78%, transparent);
   text-align: center;
   transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.aircon-type-options button:not(:disabled):active {
+  transform: scale(0.98);
 }
 
 .aircon-type-options button:disabled {
@@ -1323,6 +1361,10 @@ h2 {
   padding: 0 18px 18px;
 }
 
+.reference-power-field {
+  margin-top: 10px;
+}
+
 .power-field {
   display: block;
   padding: 16px;
@@ -1384,6 +1426,7 @@ h2 {
   font-size: 13px;
   font-weight: 800;
   line-height: 1.45;
+  word-break: keep-all;
 }
 
 .aircon-time-card:has(input:disabled) {

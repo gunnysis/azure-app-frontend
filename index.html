@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>찌릿</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260624-report-character-v3" />
-    <link rel="stylesheet" href="./styles.css?v=20260624-report-character-v3" />
+    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260624-flow-polish-v2" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-flow-polish-v2" />
   </head>
   <body data-theme="light" data-current-screen="splash">
     <main class="stage">
@@ -46,7 +46,7 @@
 
               <div class="onboarding-copy">
                 <h1>이번 달 전기세,<br />미리 볼까요?</h1>
-                <p>에어컨 사용 시간만 알려주면 예상 요금 범위를 보여드려요.</p>
+                <p>정확한 청구서가 아니라, 지금 조건으로 미리 보는 예상 범위예요.</p>
               </div>
             </div>
           </article>
@@ -54,6 +54,7 @@
           <article class="screen" data-screen="airconTime">
             <div class="section-head">
               <h2>에어컨은 하루에 얼마나 쓰나요?</h2>
+              <p>여름철 하루 평균 기준으로 골라주세요. 정확하지 않아도 괜찮아요.</p>
             </div>
 
             <div class="range-card aircon-time-card">
@@ -78,39 +79,35 @@
               <p id="airconTimeHint" hidden></p>
             </div>
 
-            <div class="aircon-type-card mock-only" id="airconTypeBlock">
-              <span>참고용 입력</span>
+            <div class="aircon-reference-card mock-only" id="airconTypeBlock">
+              <div class="reference-card-head">
+                <span>참고용 입력</span>
+                <b>선택 가능</b>
+              </div>
               <div class="aircon-type-options" role="group" aria-label="에어컨 종류 참고용 선택">
-                <button type="button" data-aircon-type="fixed" aria-pressed="false" aria-disabled="true" disabled>
+                <button type="button" data-aircon-type="fixed" aria-pressed="false">
                   <strong>정속형</strong>
                   <small>켜졌다 꺼지는 방식</small>
                 </button>
-                <button type="button" data-aircon-type="inverter" aria-pressed="false" aria-disabled="true" disabled>
+                <button type="button" data-aircon-type="inverter" aria-pressed="false">
                   <strong>인버터</strong>
                   <small>전력을 조절하는 방식</small>
                 </button>
-                <button class="active" type="button" data-aircon-type="unknown" aria-pressed="true" aria-disabled="true" disabled>
+                <button class="active" type="button" data-aircon-type="unknown" aria-pressed="true">
                   <strong>잘 모르겠어요</strong>
                   <small>평균값으로 계산</small>
                 </button>
               </div>
-            </div>
 
-            <details class="advanced-input mock-only" open>
-              <summary>
-                <strong>소비전력 입력</strong>
-              </summary>
-              <div class="advanced-input-body">
-                <label class="power-field" for="airconPowerInput">
-                  <span>에어컨 소비전력</span>
-                  <div>
-                    <input id="airconPowerInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="예: 650" aria-disabled="true" disabled />
-                    <b>W</b>
-                  </div>
-                </label>
-                <p id="airconPowerHint">현재 MVP에서는 에어컨 사용 시간만 예측에 사용해요.</p>
-              </div>
-            </details>
+              <label class="power-field reference-power-field" for="airconPowerInput">
+                <span>에어컨 소비전력</span>
+                <div>
+                  <input id="airconPowerInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="예: 650" />
+                  <b>W</b>
+                </div>
+              </label>
+              <p id="airconPowerHint">참고용 입력이에요. 현재 예측은 사용 시간을 중심으로 계산해요.</p>
+            </div>
 
           </article>
 
@@ -269,8 +266,6 @@
               <div><span>주거</span><strong>원룸</strong></div>
               <div><span>가구</span><strong>1인</strong></div>
               <div><span>하루 사용</span><strong id="summaryAirconHours">4시간</strong></div>
-              <div id="summaryAirconTypeWrap"><span>에어컨 타입</span><strong id="summaryAirconType">잘 모름</strong></div>
-              <div><span>소비전력</span><strong id="summaryAirconPower">평균값</strong></div>
             </div>
 
             <button class="report-reset-button" type="button" id="resetReportButton">처음으로 돌아가기</button>
@@ -323,7 +318,7 @@
         </div>
       </section>
     </main>
-    <script src="./config.js?v=20260624-main-sync-v1"></script>
-    <script src="./script.js?v=20260624-main-sync-v1"></script>
+    <script src="./config.js?v=20260624-flow-polish-v2"></script>
+    <script src="./script.js?v=20260624-flow-polish-v2"></script>
   </body>
 </html>

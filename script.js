@@ -15,6 +15,7 @@ const CHAT_ENDPOINT = window.SINGLE_ENERGY_CHAT_API_URL || "/api/chat";
 
 const screens = [
   { id: "splash", label: "인트로", cta: "시작하기" },
+  { id: "start", label: "안내", cta: "다음" },
   { id: "airconTime", label: "사용 시간", cta: "예상 요금 보기" },
   { id: "loading", label: "분석", cta: "계산 중" },
   { id: "report", label: "리포트", cta: "처음으로 돌아가기" },
@@ -235,21 +236,20 @@ function normalizeAirconPowerInput({ writeValue = true } = {}) {
 
 function syncAirconPowerState() {
   const disabled = !hasAirconUsage();
-  const container = els.airconPowerInput?.closest(".advanced-input");
+  const container = els.airconPowerInput?.closest(".aircon-reference-card");
   const typeBlock = els.airconTypeBlock;
   if (els.airconPowerInput) {
-    els.airconPowerInput.disabled = true;
-    els.airconPowerInput.setAttribute("aria-disabled", "true");
+    els.airconPowerInput.disabled = disabled;
+    els.airconPowerInput.setAttribute("aria-disabled", String(disabled));
   }
   if (container) {
     container.hidden = disabled;
-    container.open = !disabled;
   }
   if (typeBlock) {
     typeBlock.hidden = disabled;
   }
-  container?.classList.toggle("is-disabled", true);
-  container?.setAttribute("aria-disabled", "true");
+  container?.classList.toggle("is-disabled", disabled);
+  container?.setAttribute("aria-disabled", String(disabled));
   if (disabled) {
     state.airconPowerW = 0;
     state.airconType = "none";
@@ -309,21 +309,9 @@ function buildPayload() {
 
 function localMockPredict(payload) {
   const hours = payload.aircon_hours_per_day || 0;
-  const typeDefaults = {
-    fixed: 760,
-    inverter: 560,
-    unknown: 650,
-    none: 0,
-  };
-  const typeMultiplier = {
-    fixed: 1.1,
-    inverter: 0.92,
-    unknown: 1,
-    none: 0,
-  };
-  const powerKw = (payload.aircon_power_w || typeDefaults[payload.aircon_type] || 650) / 1000;
+  const powerKw = hours > 0 ? 0.65 : 0;
   const baseKwh = 132;
-  let kwh = baseKwh + hours * 30 * powerKw * (typeMultiplier[payload.aircon_type] || 1);
+  let kwh = baseKwh + hours * 30 * powerKw;
   if (hours > 0 && hours <= 1) kwh += 8;
 
   const predictedKwh = Math.round(clamp(kwh, 85, 650));
@@ -561,7 +549,7 @@ function renderAirconTimeHint() {
   els.airconTimeHint.textContent =
     hours === 0
       ? "0시간은 에어컨 미사용 기준으로 계산해요."
-      : `하루 ${formatHours(hours)}시간이면 한 달 약 ${formatNumber(hours * 30)}시간 사용으로 계산해요.`;
+      : `${formatHours(hours)}시간/일 · 월 ${formatNumber(hours * 30)}시간 기준`;
   els.airconTimeHint.classList.remove("is-pending");
 }
 
@@ -587,11 +575,11 @@ function scheduleAirconTimeHint() {
   els.airconTimeHint.textContent =
     hours === 0
       ? "에어컨을 쓰지 않는 조건으로 계산할게요."
-      : "선택한 시간으로 한 달 기준을 맞추고 있어요.";
+      : "선택한 시간으로 월 기준을 맞추고 있어요.";
   state.hintTimer = setTimeout(() => {
     state.hintTimer = null;
     renderAirconTimeHint();
-  }, 620);
+  }, 760);
 }
 
 function renderAirconPowerHint() {
@@ -600,7 +588,7 @@ function renderAirconPowerHint() {
     els.airconPowerHint.textContent = "에어컨 미사용 시 참고 입력은 숨겨요.";
     return;
   }
-  els.airconPowerHint.textContent = "현재 MVP에서는 에어컨 사용 시간만 예측에 사용해요.";
+  els.airconPowerHint.textContent = "참고용 입력이에요. 현재 예측은 사용 시간을 중심으로 계산해요.";
 }
 
 function formatTipBadge(tip) {
@@ -708,17 +696,6 @@ function renderPrediction(prediction = state.lastPrediction) {
   renderTips(tips);
 
   els.summaryAirconHours.textContent = `${formatHours(payload.aircon_hours_per_day)}시간`;
-  if (els.summaryAirconType) {
-    els.summaryAirconType.textContent = AIRCON_TYPE_LABELS[payload.aircon_type] || "잘 모름";
-  }
-  if (els.summaryAirconTypeWrap) {
-    els.summaryAirconTypeWrap.hidden = !payload.has_aircon;
-  }
-  els.summaryAirconPower.textContent = !payload.has_aircon
-    ? "미사용"
-    : payload.aircon_power_w
-      ? `${formatNumber(payload.aircon_power_w)}W`
-      : "평균값";
 }
 
 function setLoadingStep(step) {
@@ -755,7 +732,7 @@ function goTo(index) {
   els.stepLabel.textContent = current.label;
   els.stepCount.textContent = `${state.index + 1}/${screens.length}`;
   els.progressBar.style.width = `${((state.index + 1) / screens.length) * 100}%`;
-  els.backButton.disabled = state.index <= 1 || current.id === "loading";
+  els.backButton.disabled = state.index <= 0 || current.id === "loading";
   els.nextButton.textContent = current.cta;
   els.nextButton.disabled = current.id === "loading";
   document.body.dataset.currentScreen = current.id;
@@ -766,14 +743,14 @@ function goTo(index) {
 async function runLoading() {
   const payload = buildPayload();
   const request = requestPrediction(payload);
-  const minimumReadingTime = delay(3200);
+  const minimumReadingTime = delay(5200);
 
   setLoadingStep(0);
-  await delay(850);
+  await delay(1250);
   setLoadingStep(1);
-  await delay(850);
+  await delay(1250);
   setLoadingStep(2);
-  await delay(850);
+  await delay(1250);
   setLoadingStep(3);
 
   const [prediction] = await Promise.all([request, minimumReadingTime]);
@@ -1118,15 +1095,9 @@ function drawTextBlock(context, text, x, y, maxWidth, lineHeight, maxLines = 3) 
 function getCanvasReportSnapshot() {
   const summary = [
     ["하루 사용", els.summaryAirconHours.textContent.trim()],
-  ];
-  if (els.summaryAirconTypeWrap && !els.summaryAirconTypeWrap.hidden) {
-    summary.push(["에어컨 타입", els.summaryAirconType.textContent.trim()]);
-  }
-  summary.push(
-    ["소비전력", els.summaryAirconPower.textContent.trim()],
     ["지역", "마포구"],
     ["가구", "1인 원룸"],
-  );
+  ];
 
   return {
     profile: els.shareReportCard.dataset.profile || "cooling",
