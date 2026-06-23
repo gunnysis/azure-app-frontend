@@ -68,6 +68,8 @@ const els = {
   reportTypeName: document.querySelector("#reportTypeName"),
   reportOneLine: document.querySelector("#reportOneLine"),
   reportVisual: document.querySelector("#reportVisual"),
+  reportJjiritImg: document.querySelector("#reportJjiritImg"),
+  reportCharacterMood: document.querySelector("#reportCharacterMood"),
   shareBill: document.querySelector("#shareBill"),
   shareKwh: document.querySelector("#shareKwh"),
   shareGapText: document.querySelector("#shareGapText"),
@@ -403,6 +405,8 @@ function getReportProfile(payload, prediction) {
       typeName: "전기세 빨간불형",
       oneLine: "이번 달은 주의가 필요해요.",
       visual: ["🚨", "₩"],
+      mood: "위험 감지",
+      character: "./assets/brand/characters/jjirit-alert.png",
       reasonIcon: "!",
       reason: "예상 사용량이 마포구 1인 가구 기준보다 크게 높게 잡혔어요.",
     };
@@ -414,8 +418,23 @@ function getReportProfile(payload, prediction) {
       typeName: "찌릿 안심형",
       oneLine: "이번 달은 안심 구간에 가까워요.",
       visual: ["💡", "✓"],
+      mood: "안심 신호",
+      character: "./assets/brand/characters/jjirit-steady.png",
       reasonIcon: "✓",
       reason: "에어컨을 쓰지 않는 조건이라 냉방 전력 부담은 낮게 잡혔어요.",
+    };
+  }
+
+  if (hours <= 2) {
+    return {
+      key: "steady",
+      typeName: "절약 성공형",
+      oneLine: "이번 달은 꽤 잘 버티고 있어요.",
+      visual: ["✨", "✓"],
+      mood: "절약 성공",
+      character: "./assets/brand/characters/jjirit-saving.png",
+      reasonIcon: "✓",
+      reason: `하루 ${formatHours(hours)}시간 냉방 조건이라 요금 부담이 크게 튀지 않게 잡혔어요.`,
     };
   }
 
@@ -425,6 +444,8 @@ function getReportProfile(payload, prediction) {
       typeName: "냉방 찌릿형",
       oneLine: "시원함은 챙겼고, 전기세는 눈치 봐야 해요.",
       visual: ["❄️", "₩"],
+      mood: "냉방 체크",
+      character: "./assets/brand/characters/jjirit-basic.png",
       reasonIcon: "↗",
       reason: `하루 ${formatHours(hours)}시간 냉방 조건이 요금 상승에 크게 반영됐어요.`,
     };
@@ -436,6 +457,8 @@ function getReportProfile(payload, prediction) {
       typeName: "찌릿 주의형",
       oneLine: "전기세가 슬슬 신호를 보내고 있어요.",
       visual: ["❄️", "₩"],
+      mood: "주의 신호",
+      character: "./assets/brand/characters/jjirit-basic.png",
       reasonIcon: "↗",
       reason: `하루 ${formatHours(hours)}시간 에어컨 사용이 예상 요금에 반영됐어요.`,
     };
@@ -446,6 +469,8 @@ function getReportProfile(payload, prediction) {
     typeName: "가끔 찌릿형",
     oneLine: "아직은 부담이 크지 않은 냉방 패턴이에요.",
     visual: ["🌬️", "✓"],
+    mood: "가끔 찌릿",
+    character: "./assets/brand/characters/jjirit-basic.png",
     reasonIcon: "↗",
     reason: `하루 ${formatHours(hours)}시간 냉방 조건은 기준 대비 큰 부담은 아니에요.`,
   };
@@ -657,6 +682,12 @@ function renderPrediction(prediction = state.lastPrediction) {
   els.reportOneLine.textContent = profile.oneLine;
   els.reportVisual.querySelector(".visual-main").textContent = profile.visual[0];
   els.reportVisual.querySelector(".visual-sub").textContent = profile.visual[1];
+  if (els.reportJjiritImg) {
+    els.reportJjiritImg.src = profile.character;
+  }
+  if (els.reportCharacterMood) {
+    els.reportCharacterMood.textContent = profile.mood;
+  }
   els.shareBill.textContent = formatBillRange(result.estimated_bill);
   els.shareKwh.textContent = `${formatNumber(result.predicted_kwh)}kWh`;
   els.shareGapText.textContent =
@@ -1112,6 +1143,8 @@ function getCanvasReportSnapshot() {
     missionCopy: els.shareMissionCopy.textContent.trim(),
     visualMain: els.reportVisual.querySelector(".visual-main").textContent.trim(),
     visualSub: els.reportVisual.querySelector(".visual-sub").textContent.trim(),
+    characterSrc: els.reportJjiritImg?.getAttribute("src") || "./assets/brand/characters/jjirit-basic.png",
+    characterMood: els.reportCharacterMood?.textContent.trim() || "",
     missionIcon: els.missionVisual.querySelector("span").textContent.trim(),
     tips: [...els.tipList.querySelectorAll(".tip-card")].slice(0, 3).map((card) => ({
       icon: card.querySelector("b")?.textContent.trim() || "✓",
@@ -1146,9 +1179,29 @@ function reportNumberFont(weight, size) {
   return `${weight} ${size}px "Moneygraphy Rounded", "Malgun Gothic", Arial, sans-serif`;
 }
 
+function loadCanvasImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function drawImageContain(ctx, image, x, y, width, height) {
+  const ratio = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = image.naturalWidth * ratio;
+  const drawHeight = image.naturalHeight * ratio;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+  ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+}
+
 async function createCanvasReportBlob() {
   await ensureCanvasFonts();
   const data = getCanvasReportSnapshot();
+  const jjiritImage = await loadCanvasImage(new URL(data.characterSrc, window.location.href).href).catch(() => null);
   const palette = {
     alert: "#ef4444",
     cooling: "#3182f6",
@@ -1200,15 +1253,25 @@ async function createCanvasReportBlob() {
   ctx.font = reportFont(800, 32);
   drawTextBlock(ctx, data.oneLine, 86, 414, 580, 42, 2);
 
-  fillRoundRect(ctx, 748, 200, 184, 206, 54, "#f5f9ff");
+  fillRoundRect(ctx, 738, 190, 216, 246, 58, "#f5f9ff");
+  if (jjiritImage) {
+    drawImageContain(ctx, jjiritImage, 750, 232, 176, 160);
+  }
   ctx.fillStyle = accent;
-  ctx.font = "92px Apple Color Emoji, Segoe UI Emoji, sans-serif";
-  ctx.fillText(data.visualMain, 778, 320);
-  fillRoundRect(ctx, 854, 334, 70, 70, 35, accent);
+  ctx.font = "54px Apple Color Emoji, Segoe UI Emoji, sans-serif";
+  ctx.fillText(data.visualMain, 766, 258);
+  fillRoundRect(ctx, 866, 340, 70, 70, 35, accent);
   ctx.fillStyle = "#ffffff";
   ctx.font = reportFont(900, 38);
   ctx.textAlign = "center";
-  ctx.fillText(data.visualSub, 889, 381);
+  ctx.fillText(data.visualSub, 901, 387);
+  if (data.characterMood) {
+    const moodWidth = Math.max(122, Math.min(178, data.characterMood.length * 28 + 38));
+    fillRoundRect(ctx, 846 - moodWidth / 2, 408, moodWidth, 46, 23, accent);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = reportFont(900, 24);
+    ctx.fillText(data.characterMood, 846, 439);
+  }
   ctx.textAlign = "left";
 
   fillRoundRect(ctx, 86, 500, 908, 210, 40, "#f7f8fa");

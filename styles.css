@@ -2207,8 +2207,8 @@ h2 {
 
 .report-visual {
   position: relative;
-  flex: 0 0 94px;
-  height: 112px;
+  flex: 0 0 116px;
+  height: 136px;
   border-radius: 32px;
   background:
     radial-gradient(circle at 32% 18%, rgba(255, 255, 255, 0.78), transparent 34%),
@@ -2218,20 +2218,34 @@ h2 {
   transform: rotate(4deg);
 }
 
+.report-jjirit-img {
+  position: absolute;
+  left: 5px;
+  bottom: 8px;
+  width: 106px;
+  height: 108px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 20px color-mix(in srgb, var(--profile) 18%, transparent));
+}
+
 .visual-main {
   position: absolute;
-  left: 15px;
-  top: 17px;
-  font-size: 42px;
+  left: 9px;
+  top: 10px;
+  z-index: 2;
+  font-size: 28px;
   line-height: 1;
+  filter: drop-shadow(0 8px 12px rgba(25, 31, 40, 0.12));
 }
 
 .visual-sub {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 38px;
-  height: 38px;
+  right: 8px;
+  bottom: 18px;
+  z-index: 3;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -2241,6 +2255,27 @@ h2 {
   font-size: 20px;
   font-weight: 900;
   box-shadow: 0 10px 20px color-mix(in srgb, var(--profile) 22%, transparent);
+}
+
+.report-character-mood {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  z-index: 4;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--profile);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-4deg);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--profile) 24%, transparent);
 }
 
 .report-main-bill {
