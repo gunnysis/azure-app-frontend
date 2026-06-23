@@ -115,11 +115,11 @@ window.singleEnergyFrontend.buildPayload()
 
 ## 8. 현재 남은 확인 사항
 
-배포/연동(진행 중):
+배포/연동(✅ 완료 — 2026-06-23 라이브 실측):
 
-- 백엔드 어댑터(`/api/v1/estimate`) 운영 배포
-- 백엔드 `CORS_ORIGINS`에 SWA 운영 출처 추가 → 브라우저 호출 허용
-- 프론트 라이브에서 `source=live` 확인(콘솔)
+- ✅ 백엔드 어댑터(`/api/v1/estimate`) 운영 배포 — 무키 POST → 200
+- ✅ 백엔드 `CORS_ORIGINS`에 SWA 운영 출처 추가 → `Access-Control-Allow-Origin` = SWA 출처 확인
+- ✅ 프론트 라이브에서 `source=live` 확인(실제 ML 예측 동작)
 
 정확도(후속):
 

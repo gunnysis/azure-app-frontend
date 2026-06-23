@@ -4,9 +4,10 @@
 > **배포 플랫폼:** Azure Static Web Apps
 > **작성일:** 2026-06-23
 > **근거 문서:** [`../../docs/azure/info.md`](../../docs/azure/info.md) §2(Static Web Apps)·§4(백엔드)
-> **상태:** 🟢 **정적 사이트 배포 완료**(2026-06-23, GitHub Actions `Build and Deploy` 성공, 커밋 `fd752d4`). `config.js`는 운영 백엔드 HTTPS URL로 전환됨. ⚠️ 단 **백엔드 연동(§5: 경로 `/predict`↔`/api/v1/predict`·인증·CORS) 미해소** → 현재 예측은 폴백(`localMockPredict`)으로 동작한다. 실연동은 §5 합의 후 §6의 8~10단계로 검증.
-> ✅ **선결조건 해소(2026-06-23 실측 갱신)**: **SWA↔GitHub 연결은 이미 완료**됐다. Azure가 `origin/main`에 워크플로(`.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml`)를 **자동 커밋**했고, 배포 토큰 시크릿(`AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_DESERT_0CDB08500`)도 자동 등록됐다(§3.0 방법 A 완료). "push 시 자동 배포" 전제는 **성립한다**. ⚠️ 단, 이 정본 워크플로는 `output_location:"/"`·`skip_app_build` 미설정(Azure 기본값) — 빌드리스 강건화는 §3.2 참고.
-> ⚠️ **요청 데이터(페이로드) 계약 미확정**: 프론트가 백엔드로 보내는 요청 본문 필드는 **확정값이 아니며 변경될 수 있다.** 백엔드/ML 팀과 최종 합의 전까지 잠정(provisional)으로 취급한다 — 상세 §5.2.
+> **상태:** 🟢 **정적 배포 + 백엔드 실연동 완료**(2026-06-23 실측). GitHub Actions `Build and Deploy` 성공, `config.js`는 호스트 인지 가드로 운영 백엔드 HTTPS URL 강제. ✅ **§5의 연동 차단 3건(경로·인증·페이로드)은 무키 어댑터 `POST /api/v1/estimate`로 전부 해소**됨 — 라이브에서 `source=live`, 실제 ML 예측 확인(예: 6월 `predicted_kwh≈141`, THI 70.06, `Access-Control-Allow-Origin` = SWA 출처). 어댑터 동작은 [`../API_CONTRACT.md`](../API_CONTRACT.md) §6, 해소 이력은 [`POST_DEPLOY_REVIEW.md`](POST_DEPLOY_REVIEW.md) §3 참조.
+> ✅ **선결조건 해소(2026-06-23 실측 갱신)**: **SWA↔GitHub 연결은 이미 완료**됐다. Azure가 `origin/main`에 워크플로(`.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml`)를 **자동 커밋**했고, 배포 토큰 시크릿(`AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_DESERT_0CDB08500`)도 자동 등록됐다(§3.0 방법 A 완료). "push 시 자동 배포" 전제는 **성립한다**. 빌드리스 강건화(`output_location:""`·`skip_app_build:true`)도 **적용·배포 완료**(§3.2).
+> 🔁 **재발방지(2026-06-23 dev 오배포 사건):** SWA 배포 토큰은 **모든 브랜치가 공유**하므로 push 트리거가 있는 어떤 브랜치든 프로덕션을 덮어쓴다. **실제 차단선은 R-2·R-3**: ① 워크플로 `on.push.branches`를 **모든 브랜치에서 `main`만**으로 고정(R-2, main·dev·codex 실측 확인), ② **SWA 프로덕션 브랜치 = main**(R-3). 다른 브랜치에 워크플로 복사 시 push 트리거에 그 브랜치명을 넣지 말 것. ⚠️ **main은 오너 결정으로 직접 push 허용**(branch protection 제거, `protected:false`) — push 즉시 프로덕션 배포되니 리뷰 없이 올리는 코드 주의. branch protection은 *코드리뷰 게이트*였을 뿐 이 사건의 직접 차단책이 아니었다 — 상세 [`POST_DEPLOY_REVIEW.md`](POST_DEPLOY_REVIEW.md) §1-A.
+> ✅ **요청 페이로드 계약 해소**: 어댑터(`/api/v1/estimate`)가 에어컨 습관 입력을 그대로 수용하고 8개 ML 피처를 서버측에서 합성하므로, 프론트 페이로드는 더 이상 ML 입력 스펙 변경에 직접 종속되지 않는다(잠정성 해소). 정확도 한계(추정 사용량)는 §5.2·`API_CONTRACT.md` §6 참조.
 
 > 📌 **줄번호 인용 주의(유지보수):** 본 문서의 `script.js:NN` 인용은 **2026-06-23 커밋 기준**이다. 코드 수정 시 줄번호가 밀릴 수 있으니 **함수명(`buildPayload`, `normalizePredictionResponse`, `requestPrediction`)을 1차 기준**으로 찾고 줄번호는 보조로 쓸 것.
 
@@ -32,19 +33,19 @@
 | **A** | `.github/workflows/azure-static-web-apps-thankful-desert-0cdb08500.yml` | ✅ **Azure가 `origin/main`에 자동 생성·커밋 완료** | 정본 채택(수동 작성 불필요). 빌드리스 강건화는 선택 | §3.0·§3.2 |
 | **B** | `staticwebapp.config.json` (루트) | **없음** | 신규 생성(보안헤더·캐시·CSP) | §3.1 |
 | **C** | `config.js` | ✅ **운영 HTTPS URL로 전환·배포 완료**(`...koreacentral-01.azurewebsites.net`) | — | §4 |
-| **D** | `script.js` `PREDICT_ENDPOINT`·인증 헤더 | `/predict`, 키 없음 | 백엔드 계약 합의 후 정합 | §5-#1·#2 |
+| **D** | `script.js` `PREDICT_ENDPOINT`·인증 헤더 | ✅ `/api/v1/estimate`(무키 어댑터)로 정합·배포 완료 | — | §5(해소) |
 
-> **A·B는 코드 변경 없이 추가만으로 동작**한다(선행 가능). **C·D는 백엔드 팀 합의(경로·인증·페이로드)에 종속** — §5 게이트 통과 전에는 운영 출시를 보류하고 스테이징 검증까지만 진행한다.
+> **A·B는 코드 변경 없이 추가만으로 동작**한다(선행 가능). **C·D의 백엔드 계약 종속(경로·인증·페이로드)은 무키 어댑터 `/api/v1/estimate`로 해소**됐다 — 출시 게이트 통과(§5).
 
 **구현 단계 (의존 순서)** — 각 단계는 선행 산출물에 의존한다.
 
 | 단계 | 작업 | 산출물 | 선행 | 게이트 |
 |---|---|---|---|---|
-| 1 | 계약 확정 — 페이로드·API 경로·인증/CORS 합의(§5) | (합의 문서) | — | ❗**출시 게이트.** 미합의 시 4~5는 스테이징까지만 |
+| 1 | ✅ 계약 해소 — 무키 어댑터 `/api/v1/estimate`가 경로·인증·페이로드 간극을 흡수(§5) | 어댑터(백엔드) | — | ❗출시 게이트 **통과** |
 | 2 | ✅ `staticwebapp.config.json` 루트 추가·배포(§3.1) | B(완료) | 없음(선행 가능) | 배포 후 CSP 위반·이미지 export 회귀 점검(§6-10) |
-| 3 | ✅ `config.js`를 운영 HTTPS URL로 전환·배포(§4) | C(완료) | 1(경로 합의) | `https://` 적용됨 |
-| 4 | ✅ 커밋 `fd752d4` → `main` push → **Actions `Build and Deploy` green**(2026-06-23) | A(완료) | 2·3 | Actions green ✅ |
-| 5 | 🟡 정적 배포 완료. **E2E 실연동 검증은 §5 합의 후**(§6 체크리스트 8~10) | — | 4 | 백엔드 200 실연동 + 폴백 경고 없음 |
+| 3 | ✅ `config.js`를 호스트 인지 운영 HTTPS URL 가드로 전환·배포(§4) | C(완료) | 1 | `https://` 강제 적용됨 |
+| 4 | ✅ `main` push → **Actions `Build and Deploy` green**(2026-06-23) | A(완료) | 2·3 | Actions green ✅ |
+| 5 | ✅ **E2E 실연동 검증 완료** — 라이브 `source=live`, 어댑터 200 + ACAO 헤더 + 실제 ML 예측(§6 체크리스트 8~10) | — | 4 | 백엔드 200 실연동 + 폴백 경고 없음 ✅ |
 
 ---
 
@@ -55,7 +56,7 @@
 | 파일/폴더 | 역할 |
 |---|---|
 | `index.html` | 진입점 (단일 페이지, JS로 화면 전환) |
-| `script.js` | 예측 요청·화면 렌더링 로직. **요청 페이로드 생성(`buildPayload()`)이 여기 있으며 계약 미확정(§5.2)** |
+| `script.js` | 예측 요청·화면 렌더링 로직. 요청 페이로드 생성(`buildPayload()`)·엔드포인트(`PREDICT_ENDPOINT`=`/api/v1/estimate`)가 여기 있다(어댑터로 계약 해소, §5) |
 | `styles.css` | 스타일 |
 | `config.js` | **API 베이스 URL 설정** (환경별로 변경 — 산출물 C, §4) |
 | `assets/brand/` | 브랜드 SVG(`jjirit-icon.svg`·`jjirit-logo.svg`) — 파비콘·로고 |
@@ -80,16 +81,17 @@
 | Correlation ID | `f5801032-0a4a-45b9-b5e1-a9cf4af46cb2` | 배포 추적용 |
 | 생성 시작 | 2026-06-23 15:09:00 | |
 
-### 2.1 `info.md`에 없어 **포털에서 확인이 필요한 값** (출시 전 채울 것)
+### 2.1 ✅ (확인 완료) 포털/CLI 실측값 (2026-06-23 `az` 확인)
 
-| 확인 항목 | 채울 값 | 확인 위치 |
-|---|---|---|
-| SWA 리소스 이름 | (예: `swa-…`) | 포털 → Static Web App 개요 |
-| 기본 호스트네임 | `https://<생성된-이름>.<region-hash>.azurestaticapps.net` | 개요 "URL" |
-| 배포 토큰(또는 OIDC) | `AZURE_STATIC_WEB_APPS_API_TOKEN_<랜덤접미사>` (§3) | "배포 토큰 관리" |
-| 연결된 GitHub 저장소/워크플로 | `gunnysis/azure-app-frontend` | 포털 또는 `.github/workflows/` |
+| 확인 항목 | 실측값 |
+|---|---|
+| SWA 리소스 이름 | `app-frontend-prod-kc-02` (RG `project-1st-team-3`) |
+| 기본 호스트네임 | `https://thankful-desert-0cdb08500.7.azurestaticapps.net` |
+| 프로덕션 브랜치 | `main` (SWA 설정 정합화 완료) |
+| 배포 토큰 시크릿 | `AZURE_STATIC_WEB_APPS_API_TOKEN_THANKFUL_DESERT_0CDB08500` (워크플로가 정확히 참조) |
+| 연결된 GitHub 저장소/워크플로 | `gunnysis/azure-app-frontend` · `azure-static-web-apps-thankful-desert-0cdb08500.yml` |
 
-> ℹ️ 위 항목들은 본 프로젝트 운영에 **반드시 필요**하지만 `info.md` §2에 기재되어 있지 않다. 확인 후 본 표를 갱신할 것.
+> ℹ️ 위 항목은 `info.md` §2에 없어 `az staticwebapp` 명령으로 실측해 채웠다. ⚠️ **az(WSL) 함정:** 사용자 프로파일이 `AZURE_CONFIG_DIR`를 잘못된 값(틸드 미전개)으로 설정해 로그인이 반복 desync된다 — `az` 명령 앞에 `export AZURE_CONFIG_DIR=/home/gunny/.azure`를 고정할 것(메모리 `deploy-pipeline-constraints` 기록).
 
 > **현재 플랜: Standard.** SLA 보장 + 커스텀 도메인 5개 + 스테이징 환경 10개를 제공하며, IP 제한(`networking.allowedIpRanges`)·private endpoint·enterprise-grade edge·Front Door 연동(`forwardingGateway`) 등 **Standard 전용 보안/네트워킹 옵션**을 활성화할 수 있다(상세 §7.2). 본 MVP는 공개 서비스라 이들 옵션은 선택 적용이며, SLA·확장 여력 측면에서 Standard 유지가 적합하다.
 
@@ -235,38 +237,40 @@ with:
 | 백엔드 App 이름 | `app-mlbackend-prod-kc-01` (`info.md` §4) |
 | 백엔드 도메인 | `https://app-mlbackend-prod-kc-01-h4a6byekfzhkcday.koreacentral-01.azurewebsites.net` |
 | 리전 | Korea Central (백엔드) / East Asia (프론트 SWA) |
-| 현재 `config.js` 값 | `http://127.0.0.1:8000` (**로컬 개발 기본값**) |
+| 엔드포인트 | `POST {base}/api/v1/estimate` (`PREDICT_ENDPOINT`, `script.js` — 함수명 기준) **무키 어댑터** |
+| `config.js` 동작 | **호스트 인지 가드** — 비로컬 호스트면 운영 백엔드 강제, 로컬에서만 `http://127.0.0.1:8000` |
 
-### 운영 배포 시 `config.js` 변경
+### `config.js` — 호스트 인지 가드(재발방지)
+
+운영/로컬을 분기하는 것은 더 이상 수동 URL 치환이 아니라 **호스트 기반 가드**다. 어떤 브랜치가 `localhost` config로 오배포돼도 운영 호스트에서 서빙되면 운영 백엔드를 강제하므로 백엔드 링크가 끊기지 않는다(2026-06-23 dev 오배포 재발방지).
 
 ```js
-// config.js — 운영
-window.SINGLE_ENERGY_API_BASE_URL =
-  window.SINGLE_ENERGY_API_BASE_URL ||
-  "https://app-mlbackend-prod-kc-01-h4a6byekfzhkcday.koreacentral-01.azurewebsites.net";
+// config.js (요지) — 비로컬 호스트면 PROD 강제, 로컬에서만 사전설정/로컬 기본값 허용
+if (isLocalDev) {
+  window.SINGLE_ENERGY_API_BASE_URL =
+    window.SINGLE_ENERGY_API_BASE_URL || "http://127.0.0.1:8000";
+} else {
+  window.SINGLE_ENERGY_API_BASE_URL = PROD_API_BASE; // 운영 백엔드 강제
+}
 ```
 
-> 프론트는 `${API_BASE_URL}/predict` (`PREDICT_ENDPOINT`, `script.js:6`)로 호출한다. 베이스 URL만 바꾸면 경로가 따라 붙는다 — 단 **경로 정합성 문제 있음(§5 참조).**
-> ⚠️ **혼합 콘텐츠 주의:** SWA는 HTTPS로 서빙되므로 `config.js`의 베이스 URL은 **반드시 `https://`** 여야 한다. `http://`로 두면 브라우저가 요청을 차단하고 프론트는 조용히 로컬 폴백(`localMockPredict`)으로 빠진다(겉으론 화면이 떠 오류로 안 보임 — §6-9 검증 필수).
-> ℹ️ `config.js`를 직접 커밋하면 운영 URL이 저장소에 들어간다. 환경 분리가 필요하면 배포 단계에서 `config.js`를 치환하는 방식을 검토한다(현재는 단일 환경이라 직접 수정으로 충분).
+> 프론트는 `${API_BASE_URL}/api/v1/estimate` (`PREDICT_ENDPOINT`)로 호출한다. ✅ 경로 정합성은 어댑터 도입으로 해소됨(§5).
+> ⚠️ **혼합 콘텐츠 주의:** SWA는 HTTPS로 서빙되므로 베이스 URL은 **반드시 `https://`**. 가드가 강제하는 `PROD_API_BASE`는 `https://`이고, CSP `connect-src`도 운영 백엔드 호스트만 허용하므로 `http://localhost`는 어차피 차단된다(이중 안전망).
+> ℹ️ 운영 URL이 저장소에 들어가지만 단일 환경이라 무해하다. 백엔드 URL 변경 시 **`config.js`의 `PROD_API_BASE`와 `staticwebapp.config.json`의 CSP `connect-src`를 함께** 갱신할 것(둘 중 하나만 바꾸면 CSP가 fetch를 차단).
 
 ---
 
-## 5. ⚠️ 출시 전 필수 정합성 점검 (코드 ↔ 백엔드 계약)
+## 5. ✅ (해소됨) 출시 전 정합성 점검 (코드 ↔ 백엔드 계약)
 
-프론트 코드와 백엔드(`info.md`) 계약을 대조한 결과 **연동을 막는 불일치 2건**과 **미확정 계약 1건**을 확인했다. **배포만으로는 동작하지 않으므로** 출시 전 반드시 해소/합의할 것.
+> 🟢 **해소 완료(2026-06-23):** 아래 불일치 3건은 모두 **무키 어댑터 `POST /api/v1/estimate`**(백엔드 `app/api/v1/adapter.py` + `app/services/feature_builder.py`)로 해소됐다. 프론트는 에어컨 습관만 보내고, 어댑터가 8개 ML 피처를 서버측에서 합성한 뒤 키 인증이 필요한 내부 `/api/v1/predict`를 호출한다. 아래 표는 **해소 이력(원인 분석)** 으로 보존한다 — 라이브 검증은 머리말 배너, 상세 이력은 [`POST_DEPLOY_REVIEW.md`](POST_DEPLOY_REVIEW.md) §3.
 
-| # | 항목 | 프론트 현재 | 백엔드(`info.md`) | 조치 |
+| # | 항목 | (당시) 프론트 | (당시) 백엔드 | ✅ 해소 방식 |
 |---|---|---|---|---|
-| 1 | **API 경로** (불일치) | `POST {base}/predict` (`script.js:6`) | `/api/v1/predict` (§6·§7) | 양 팀 합의 후 한쪽을 맞춤(프론트 `PREDICT_ENDPOINT` 수정 또는 백엔드 라우트 추가) |
-| 2 | **인증 헤더** (불일치) | `Content-Type`만 전송, **키 없음** (`script.js:200`) | `X-API-Key`(`API_KEY`) 기대 (§6) | 아래 보안 주의 참고 |
-| 3 | **요청 페이로드** (미확정) | `buildPayload()` 7개 필드(에어컨 사용시간/타입/소비전력 중심) — **잠정** | ML 입력 피처는 변경 이력 있음(`info.md` §4.1) | §5.2 — 백엔드/ML과 필드 최종 합의 후 `buildPayload()`·`API_CONTRACT.md` 동기화 |
+| 1 | **API 경로** (불일치) | `POST {base}/predict` | `/api/v1/predict` | 프론트 `PREDICT_ENDPOINT`를 어댑터 `/api/v1/estimate`로 변경 |
+| 2 | **인증 헤더** (불일치) | 키 없음 | `X-API-Key` 기대 | 어댑터를 **무키**로 운영(아래 보안 주의 (A) 채택) — 정적 프론트가 키 노출 없이 호출, 키는 서버-서버 `/api/v1/predict`에만 |
+| 3 | **요청 페이로드** (미확정) | `buildPayload()` 7개 필드(에어컨 습관) | ML 입력 8피처(검침 사용량+기상) | 어댑터 `feature_builder`가 습관→8피처 합성(기상 평년값+THI+사용량 추정). 프론트 페이로드는 ML 스펙에서 분리 |
 
-> **보안 주의 (#2):** `API_KEY`를 정적 프론트 `config.js`/`script.js`에 넣으면 **브라우저에 그대로 노출**된다. 권장 대안:
-> - (A) 백엔드가 SWA 도메인 Origin에 한해 **키 없이 CORS 허용**(공개 예측 API로 운영), 또는
-> - (B) SWA **관리형 Functions를 프록시**로 두고 키를 서버측에 보관, 또는
-> - (C) 레이트리밋/봇 차단 등 다른 보호로 대체.
-> 정적 사이트 특성상 (A) 또는 (B)가 현실적이다. 팀 결정 필요.
+> **보안 주의 (#2 — 채택안 A):** `API_KEY`를 정적 프론트에 넣으면 **브라우저에 그대로 노출**되므로 두지 않는다. 채택한 방식: **백엔드가 SWA Origin 화이트리스트 + rate limit으로 어댑터를 키 없이 보호**(CORS `Access-Control-Allow-Origin` = SWA 출처, 라이브 검증됨). 키는 8피처 원시 입력을 받는 서버-서버용 `/api/v1/predict`에만 남는다. (대안 B: SWA 관리형 Functions 프록시 / C: 추가 봇차단 — 미채택.)
 
 ### 5.1 CORS (백엔드 측 조치 필요)
 
@@ -280,11 +284,12 @@ window.SINGLE_ENERGY_API_BASE_URL =
 
 > ⚠️ SWA는 **PR마다 별도 미리보기(staging) 환경**을 `https://<이름>-<해시>.<region>.azurestaticapps.net` 형태로 만든다. PR 환경에서 실연동 테스트가 필요하면 백엔드 CORS를 와일드카드/정규식으로 해당 패턴까지 허용해야 한다(운영만 검증한다면 생략 가능).
 
-### 5.2 ⚠️ 요청 페이로드 — **미확정(변경 가능), 잠정 계약**
+### 5.2 ✅ 요청 페이로드 — 어댑터로 안정화(ML 스펙에서 분리)
 
-> 프론트가 백엔드로 보내는 **요청 본문 필드는 현재 확정값이 아니다.** 백엔드/ML 팀의 입력 스펙이 정해지면 **추가·삭제·개명·타입 변경**될 수 있으므로, 아래 표는 **2026-06-23 기준 잠정값(provisional)** 으로만 본다.
+> 어댑터 도입 후 프론트 페이로드는 **ML 입력 스펙 변경에 직접 종속되지 않는다.** 프론트는 "에어컨 습관"만 보내고, 8피처 합성은 백엔드 `feature_builder`가 담당한다. 따라서 ML 피처가 바뀌어도 **프론트 페이로드는 그대로**일 수 있다(어댑터가 흡수). 단, 어댑터 입력 스키마(`app/schemas/adapter.py` `EstimateRequest`, `extra="forbid"`)와는 **정확히 일치**해야 한다.
+> ⚠️ **남은 정확도 한계(MVP):** `prev_year_usage`/`current_usage`는 실측 검침값이 아니라 **추정치**다(프론트가 사용량을 묻지 않음). `API_CONTRACT.md` §6 참조.
 
-**현재(잠정) 요청 본문** — `buildPayload()` (`script.js:151`) 생성, `POST {base}/predict`:
+**현재 요청 본문** — `buildPayload()` 생성, `POST {base}/api/v1/estimate`:
 
 | 필드(잠정) | 타입 | 비고 |
 |---|---|---|
@@ -297,38 +302,38 @@ window.SINGLE_ENERGY_API_BASE_URL =
 | `aircon_type` | string | `fixed`/`inverter`/`unknown`/`none` |
 
 **변경에 대한 운영 원칙**
-1. **단일 변경 지점:** 요청 필드는 오직 `buildPayload()` (`script.js:151`)에서 생성된다. 계약이 바뀌면 **이 함수만 수정**하면 되고, 라우터/렌더링 계층은 무관하다.
+1. **단일 변경 지점:** 요청 필드는 오직 `buildPayload()`(함수명으로 grep — 줄번호는 드리프트)에서 생성된다. 계약이 바뀌면 **이 함수만 수정**하면 되고, 라우터/렌더링 계층은 무관하다.
 2. **동기화 대상:** 필드 변경 시 `buildPayload()` ↔ [`../API_CONTRACT.md`](../API_CONTRACT.md)(§2·§3) ↔ 백엔드 요청 스키마를 **항상 함께** 갱신한다. `API_CONTRACT.md`가 프론트↔백엔드 단일 계약서이므로 우선 갱신한다.
-3. **출시 게이트:** 페이로드 계약이 **합의·고정되기 전에는 운영 출시 보류.** 잠정 스펙으로 배포하면 백엔드 스펙 변경 시 즉시 깨진다.
+3. **어댑터 스키마 동기화:** 필드 변경 시 `buildPayload()` ↔ `API_CONTRACT.md` ↔ 백엔드 `EstimateRequest`(`extra="forbid"`라 미정의 필드는 422)를 **함께** 갱신한다. (출시 게이트는 어댑터 도입으로 이미 통과 — §5.)
 
 **범위 구분 (혼동 주의)**
 - 위 *요청 필드*는 **프론트의 출력 계약** → 변경 시 **프론트가 `buildPayload()` 수정**.
-- *ML 입력 피처*(예: `avg_temp`→`avg_temperature`, int64→double 등 `info.md` §4.1) 변환은 **백엔드 책임** → 프론트 무관. 단, ML 피처 변경이 **요청 필드 추가를 유발**할 수 있어 위 미확정성의 원인이 된다.
+- *ML 입력 피처*(예: `avg_temp`→`avg_temperature`, int64→double 등 `info.md` §4.1) 변환은 **백엔드 어댑터(`feature_builder`) 책임** → 프론트 무관. 어댑터가 습관→8피처 합성을 흡수하므로, ML 피처가 바뀌어도 프론트 요청 필드는 영향받지 않는다(과거 미확정성의 원인이 이 계층에서 차단됨).
 
-**응답 계약(상대적으로 안정)**: 프론트가 의존하는 값은 `predicted_kwh`(필수)·`estimated_bill`(선택) 두 개뿐이다(`API_CONTRACT.md` §4, `normalizePredictionResponse()` `script.js:179`). 응답 키가 바뀌면 `normalizePredictionResponse()`를 함께 조정한다.
+**응답 계약(안정)**: 프론트가 의존하는 값은 `predicted_kwh`(필수) 하나뿐이며, `estimated_bill`이 없으면 `calculateElectricBill()`로 자체 계산한다(`API_CONTRACT.md` §4·§5, `normalizePredictionResponse()` — 함수명으로 grep). 응답 키가 바뀌면 `normalizePredictionResponse()`를 함께 조정한다.
 
 ---
 
 ## 6. 운영 배포 절차 (체크리스트)
 
 ```
-[x] 0. ✅ (완료) SWA ↔ GitHub 연결 — Azure 자동생성 워크플로 + 시크릿 등록 완료 (§3.0)
-[ ] 1. SWA 포털 정보 확인 → §2.1 표의 빈 값 채우기 (리소스명/호스트네임/토큰) — **8~10단계 검증에 호스트네임 필요**
-[x] 2. ✅ config.js를 운영 백엔드 HTTPS URL로 변경·배포 완료 (§4)
-[ ] 3. (필수·출시게이트) 요청 페이로드 계약 확정 — buildPayload() ↔ API_CONTRACT.md ↔ 백엔드 스키마 합의/동기화 (§5-#3, §5.2)
-[ ] 4. (필수) API 경로 불일치 해소 — /predict vs /api/v1/predict (§5-#1)
-[ ] 5. (필수) 인증/CORS 정책 결정 및 적용 (§5-#2, §5.1)
+[x] 0. ✅ SWA ↔ GitHub 연결 — Azure 자동생성 워크플로 + 시크릿 등록 완료 (§3.0)
+[x] 1. ✅ SWA 정보 실측 완료 → §2.1 표(리소스명 app-frontend-prod-kc-02 / 호스트네임 / 토큰 시크릿)
+[x] 2. ✅ config.js 호스트 인지 가드로 운영 백엔드 강제·배포 완료 (§4)
+[x] 3. ✅ 페이로드 계약 — 어댑터가 흡수(buildPayload ↔ API_CONTRACT.md ↔ EstimateRequest 동기화) (§5-#3, §5.2)
+[x] 4. ✅ API 경로 해소 — PREDICT_ENDPOINT를 /api/v1/estimate로 정합 (§5-#1)
+[x] 5. ✅ 인증/CORS 해소 — 무키 어댑터 + 백엔드 CORS_ORIGINS에 SWA 출처 등록 (§5-#2, §5.1)
 [x] 6a. ✅ staticwebapp.config.json(산출물 B, §3.1) 루트 추가·배포 완료
 [x] 6b. ✅ 정본 워크플로 빌드리스 강건화 — skip_app_build:true·output_location:"" 적용·배포 완료(§3.2)
 [x] 6c. ✅ actions/checkout@v3 → @v5 상향 완료 — Node20 폐기 해소(@v4는 무효, @v5 필요)(§3.2)
-[x] 7. ✅ 커밋 fd752d4 → main push → Actions `Build and Deploy` green (2026-06-23)
-[ ] 8. SWA URL 접속 → 화면 동작 + 실제 예측(백엔드 200 응답) E2E 확인 — **§5 합의 후**
-[ ] 9. 콘솔/네트워크 확인 — fallback 경고 없음 + 응답 200 + CSP 위반 없음 — **§5 합의 후**
-       window.singleEnergyFrontend.getPredictEndpoint()
-[ ] 10. 리포트 "이미지 저장/공유" 동작 확인 (CSP img-src blob: 회귀 점검, §3.1) — **배포됨, 지금 검증 가능**
+[x] 7. ✅ main push → Actions `Build and Deploy` green (2026-06-23)
+[x] 8. ✅ E2E 실연동 — 어댑터 200 + 실제 ML 예측(source=live) 확인 (2026-06-23 실측)
+[x] 9. ✅ 콘솔/네트워크 — fallback 경고 없음 + ACAO 헤더 = SWA 출처 + 응답 200 확인
+       window.singleEnergyFrontend.getPredictEndpoint() → `${base}/api/v1/estimate`
+[ ] 10. 리포트 "이미지 저장/공유" 동작 확인 (CSP img-src blob: 회귀 점검, §3.1) — **배포됨, 브라우저 수동 검증 권장(자동화 불가)**
 ```
 
-> 백엔드 미응답 시 프론트는 `script.js`의 `localMockPredict`로 **자동 폴백**해 화면은 뜨지만, 이는 운영 정상 동작이 아니다. 8·9단계로 반드시 실연동을 확인할 것.
+> 백엔드 미응답 시 프론트는 `localMockPredict`로 **자동 폴백**해 화면은 뜨지만, 이는 운영 정상 동작이 아니다. 8·9단계로 실연동을 확인했고(현재 `source=live`), 회귀 시 콘솔에 `[single-energy] Falling back...` 경고가 뜨는지 본다.
 >
 > **롤백:** 배포 단위는 Git 커밋이다. 문제 시 직전 정상 커밋으로 되돌려 `main`에 push하면 재배포된다(정적 사이트라 상태 없음). 긴급 시 포털에서 이전 배포로 전환하거나, PR 미리보기 환경(§5.1)에서 먼저 검증 후 운영 반영을 권장한다.
 

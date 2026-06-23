@@ -53,10 +53,10 @@
 | R-1 | main 마지막 배포 재실행으로 **프로덕션을 main으로 복구** | `hero…png`→**404**, `script.js`→**1333줄**, `config.js`→**prod URL** 라이브 재확인 |
 | R-2 | **dev 워크플로 트리거를 main 전용으로 복구**(`- dev` 제거, 커밋 `e6405ec`) | push 후 **새 배포 run 미발생**(트리거 제거된 커밋이라 dev push가 배포 안 됨), origin/dev `on:` = main-only |
 | R-3 | **SWA 리소스 프로덕션 브랜치 `dev`→`main`** 정합화(`az staticwebapp update --branch main`) | `branch: main` 반환 |
-| R-4 | **main branch protection**: PR 필수·승인 1·stale 리뷰 해제·대화해결 필수·force-push/삭제 차단(`enforce_admins=false` 긴급 탈출구) | `gh api …/protection` → `require_pr=true, approvals=1` |
+| R-4 | ~~main branch protection(PR 필수·승인 1…)~~ → **2026-06-23 오너 결정으로 해제**(`protected:false`). main **직접 push 허용** | 적용 시 `require_pr=true`였으나 이후 `gh api -X DELETE …/protection` → `branch.protected:false` 확인 |
 | F-3 | ✅ **적용** `config.js` **호스트 기반 가드** — 비로컬 호스트(운영/SWA 프리뷰)에서 서빙되면 어떤 사전 설정이 있어도 prod URL 강제, `localhost`/`127.0.0.1`/`file://`에서만 로컬 백엔드 허용 → 어느 브랜치가 localhost config로 배포돼도 백엔드 끊김 원천 차단(클래스 단위 재발방지) | IIFE 호스트 가드, `?v` 캐시버스터 `20260623-deploy-guard`로 갱신 |
 
-> **재발방지 핵심 사실(팩트체크):** branch protection(R-4)은 *main 브랜치로의 미리뷰 직접 push*를 막는 보완책이며, 이번 *dev→프로덕션 토큰 오배포*의 직접 차단은 **R-2(트리거 제거)**다. 둘은 서로 다른 벡터를 막는다 — 혼동 금지. 한편 `codex/jjirit-frontend-sync` 브랜치는 트리거가 main-only라 **자체 배포 위험 없음**(방치 가능, 정리는 선택).
+> **재발방지 핵심 사실(팩트체크):** 이번 *dev→프로덕션 토큰 오배포*의 직접 차단은 **R-2(워크플로 트리거 main-only)+R-3(SWA 프로덕션 브랜치=main)**다. branch protection(R-4)은 *main으로의 미리뷰 직접 push*를 막는 **별개의 보완책**이었을 뿐 이 사건 벡터와 무관 — 그래서 **오너가 직접 push를 위해 R-4를 해제**해도 오배포 벡터는 R-2·R-3로 여전히 닫혀 있다(2026-06-23 실측: main·dev·codex 세 브랜치 워크플로 모두 push 트리거 main-only, SWA `branch:main`). ⚠️ 단, R-4 해제 후 main 직접 push는 **리뷰 게이트 없이 즉시 프로덕션 배포**되므로 깨진 코드 push에 주의(`config.js` 호스트 가드 F-3이 백엔드 링크 끊김만은 차단). 한편 `codex/jjirit-frontend-sync` 브랜치도 트리거 main-only라 **자체 배포 위험 없음**(방치 가능, 정리는 선택).
 
 ---
 
@@ -137,33 +137,33 @@
 |---|---|---|
 | SWA URL 정확성 | ✅ **검증됨** | `https://thankful-desert-0cdb08500.7.azurestaticapps.net/` → HTTP 200, 앱 서빙 확인 |
 | 보안 헤더·CSP 적용(§6-10 헤더 레벨) | ✅ **검증됨** | 응답 헤더에 CSP/`X-Frame-Options`/`nosniff`/`Referrer-Policy` 존재 |
-| 리포트 이미지 export 동작(§6-10 런타임) | 🟡 미검증 | **브라우저에서** 위 URL 접속 → "이미지 저장/공유" 클릭 → 저장 성공 + 콘솔 CSP 위반 0건 (헤더는 통과, 런타임 클릭 확인만 남음) |
-| 실제 예측 200(§6-9) | 🔴 **차단** | §3의 5계층 전부 해소 필요(경로·인증·요청·응답·CORS). 백엔드(소유자=본인) 어댑터 추가가 핵심 |
+| 리포트 이미지 export 동작(§6-10 런타임) | 🟡 미검증(헤더 OK) | CSP `img-src … blob:`은 운영 응답 헤더로 재확인(2026-06-23). 남은 건 **브라우저에서** "이미지 저장/공유" 클릭 런타임 확인뿐(캔버스라 헤드리스 불가) |
+| 실제 예측 200 | ✅ **검증됨**(`source=live`) | 어댑터 `POST /api/v1/estimate`(무키) → 200, 실제 ML 예측. §3에서 5계층 전부 해소. 라이브 스모크는 아래 갱신본 참조 |
 
-**🛡️ 재발방지 — 배포 후 스모크 점검(curl 4종, ~1분)**
-프론트 폴백이 오류를 가리므로(폴백 불투명성), 배포마다 아래로 5계층을 빠르게 회귀 확인한다. 통과 기준을 명시한다.
+**🛡️ 재발방지 — 배포 후 스모크 점검(curl, ~1분)**
+프론트 폴백이 오류를 가리므로(폴백 불투명성), 배포마다 아래로 라이브 경로를 회귀 확인한다. **프론트가 실제 호출하는 무키 어댑터 `/api/v1/estimate`** 가 1차 대상이다(키 필요한 `/api/v1/predict`는 서버-서버용 보조 점검).
 
 ```bash
 BE="https://app-mlbackend-prod-kc-01-h4a6byekfzhkcday.koreacentral-01.azurewebsites.net"
 SWA="https://thankful-desert-0cdb08500.7.azurestaticapps.net"
 
-curl -s -o /dev/null -w "health   %{http_code}\n" "$BE/health"                 # 기대 200
-curl -s -o /dev/null -w "wrongpath %{http_code}\n" -X POST "$BE/predict"        # 현재 404 → 경로 정합 시 사라져야
-curl -s -o /dev/null -w "auth     %{http_code}\n" -X POST "$BE/api/v1/predict" \
-  -H "Content-Type: application/json" -d '{"inputs":[{}]}'                       # 키 없음 → 401(정상)
-curl -s -D - -o /dev/null -X OPTIONS "$BE/api/v1/predict" \
-  -H "Origin: $SWA" -H "Access-Control-Request-Method: POST" \
-  | grep -i "access-control-allow-origin"                                        # CORS 해소 시 ACAO 헤더 출력돼야(현재 없음)
+curl -s -o /dev/null -w "health        %{http_code}\n" "$BE/health"             # 기대 200
+# 1차: 프론트가 쓰는 무키 어댑터 — 200 + 실제 ML 예측 + ACAO 헤더가 떠야 정상
+curl -s -D - -X POST "$BE/api/v1/estimate" -H "Content-Type: application/json" -H "Origin: $SWA" \
+  -d '{"region":"mapo","housing_type":"oneroom","household_size":1,"has_aircon":true,"aircon_hours_per_day":4,"aircon_power_w":650,"aircon_type":"inverter"}' \
+  -o /dev/null -w "estimate      %{http_code}\n" | grep -i "access-control-allow-origin"   # ACAO: <SWA> 출력돼야
+# 보조: 내부 키드 엔드포인트는 키 없으면 401 유지가 정상(공개 노출 안 됨)
+curl -s -o /dev/null -w "predict(nokey) %{http_code}\n" -X POST "$BE/api/v1/predict" \
+  -H "Content-Type: application/json" -d '{"inputs":[{}]}'                       # 기대 401
 ```
 
-| 점검 | 현재(차단) | 해소 후 기대 |
+| 점검 | 기대(정상) | 회귀 신호 |
 |---|---|---|
-| `health` | 200 | 200 |
-| `wrongpath /predict` | 404 | (프론트가 `/api/v1/predict` 호출로 전환되면 무관) |
-| `auth`(키 없음) | 401 | 401 유지(정상). 유효 키 동봉 시 200 |
-| `CORS ACAO` | 헤더 없음 + OPTIONS 500 | `Access-Control-Allow-Origin: <SWA>` 출력 |
+| `health` | 200 | 그 외 → 백엔드 다운 |
+| `estimate`(무키, Origin=SWA) | **200** + `ACAO: <SWA>` + `predicted_kwh` | 4xx/5xx 또는 ACAO 누락 → 프론트 전량 폴백 |
+| `predict`(키 없음) | 401 유지 | 200이면 내부 엔드포인트가 무방비 노출(보안 회귀) |
 
-> 브라우저 최종 확인: SWA URL 접속 → 예측 실행 → DevTools Network에서 `/api/v1/predict` **200** + 콘솔에 `Falling back…` 경고 **없음**.
+> 브라우저 최종 확인: SWA URL 접속 → 예측 실행 → DevTools Network에서 `/api/v1/estimate` **200** + 콘솔에 `[single-energy] Falling back…` 경고 **없음**(= `source=live`).
 
 ---
 
@@ -173,9 +173,10 @@ curl -s -D - -o /dev/null -X OPTIONS "$BE/api/v1/predict" \
 
 | 후보 | 작업 | 선행 | 비고 |
 |---|---|---|---|
-| **A** | `docs/` 검토분 커밋 | — | push 시 무해한 .md 재배포 1회 |
+| **A** | `docs/`·`README.md` 문서 최신화분 커밋 | — | push 시 무해한 .md 재배포 1회(진행 중) |
 | ~~B~~ | ✅ `actions/checkout@v3 → @v5` 상향(F-1) — **완료** | — | @v4 무효 확인 후 @v5 적용·커밋 완료 |
-| **C** | `DEPLOYMENT.md` §2.1에 검증된 SWA 호스트네임 기입 + 브라우저 이미지 export 런타임 검증(F-2) | — | 호스트네임 확보됨 → 즉시 가능 |
+| ~~C1~~ | ✅ `DEPLOYMENT.md` §2.1에 검증된 SWA 리소스명·호스트네임·토큰 시크릿 기입 — **완료**(2026-06-23) | — | `az staticwebapp` 실측값 반영 |
+| **C2** | 브라우저 이미지 export 런타임 검증(F-2) — 🟡 잔존 | — | CSP 헤더는 통과 확인, 캔버스 클릭만 수동(헤드리스 불가) |
 | ~~D0~~ | ✅ **계약 확정** — 어댑터안 채택, `API_CONTRACT.md`를 `/api/v1/estimate` 단일 계약으로 갱신 | — | **완료** |
 | ~~D1~~ | ✅ **백엔드** — 무키 어댑터 `/api/v1/estimate` + 피처빌더(기상 평년값·THI·사용량 추정) + CORS_ORIGINS에 SWA 출처 등록. pytest 39개 통과, 운영 배포 `RuntimeSuccessful` | D0 | **완료** |
 | ~~D2~~ | ✅ **프론트** — `PREDICT_ENDPOINT` → `/api/v1/estimate`(무키, CORS 화이트리스트로 보호). payload·응답 처리 호환 | D0·D1 | **완료**(PR #2) |
