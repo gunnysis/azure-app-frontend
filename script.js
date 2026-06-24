@@ -295,14 +295,45 @@ function buildPayload() {
   };
 }
 
-function localMockPredict(payload) {
-  const hours = payload.aircon_hours_per_day || 0;
-  const powerKw = hours > 0 ? 0.65 : 0;
-  const baseKwh = 132;
-  let kwh = baseKwh + hours * 30 * powerKw;
-  if (hours > 0 && hours <= 1) kwh += 8;
+// ⚠️ 동기화 필수: 아래 상수·산식은 백엔드 azure-app-backend
+//   app/services/feature_builder.py(estimate_usage)와 1:1 일치해야 한다.
+//   한쪽을 바꾸면 반드시 다른 쪽도 함께 바꿀 것 — 그래야 폴백(localMockPredict)과
+//   라이브(/api/v1/estimate) 예측 kWh가 같은 입력에 같은 값을 낸다.
+//   별도 레포·무빌드라 모듈 공유가 불가하므로 이 주석이 유일한 정합 계약이다.
+const USAGE_BASE_MONTHLY_KWH = 132; // 에어컨 외 기저 사용량(원룸 1인)
+const USAGE_DAYS_PER_MONTH = 30;
+const USAGE_TYPE_DEFAULT_POWER_W = { fixed: 760, inverter: 560, unknown: 650, none: 0 };
+const USAGE_TYPE_MULTIPLIER = { fixed: 1.1, inverter: 0.92, unknown: 1.0, none: 0.0 };
+const USAGE_FALLBACK_POWER_W = 650;
+const USAGE_MIN_KWH = 85;
+const USAGE_MAX_KWH = 650;
+const SHORT_RUN_BONUS_KWH = 8; // 0<h≤1 단시간 가동의 고정 점화/대기 비용
 
-  const predictedKwh = Math.round(clamp(kwh, 85, 650));
+// 에어컨 가동의 월 기여 kWh(비례분). base/단시간보정/clamp 제외 — 예측(estimateUsageKwh)과
+// 절감 팁(getTipCandidates)이 공유하는 단일 전력 모델(중복·드리프트 차단).
+// 연산자 주의(백엔드 Python 정합):
+//   - 타입 기본전력/배수 룩업은 ??(미지 키만 폴백) — none:0 을 0으로 보존해야 함(||금지).
+//   - 전력 우선순위는 ||(실측 power 가 null/0 이면 기본전력 → 그것도 0이면 폴백) = Python `or`.
+function airconMarginalKwh(hours, payload) {
+  const type = payload.aircon_type || "unknown";
+  const defaultPower = USAGE_TYPE_DEFAULT_POWER_W[type] ?? USAGE_FALLBACK_POWER_W;
+  const powerW = payload.aircon_power_w || defaultPower || USAGE_FALLBACK_POWER_W;
+  const multiplier = USAGE_TYPE_MULTIPLIER[type] ?? 1.0;
+  return hours * USAGE_DAYS_PER_MONTH * (powerW / 1000) * multiplier;
+}
+
+// 백엔드 estimate_usage 의 current(올해 사용량 추정) 산식 포팅.
+function estimateUsageKwh(payload) {
+  const hours = payload.aircon_hours_per_day || 0;
+  let airconKwh = airconMarginalKwh(hours, payload);
+  if (hours > 0 && hours <= 1) airconKwh += SHORT_RUN_BONUS_KWH;
+  return clamp(USAGE_BASE_MONTHLY_KWH + airconKwh, USAGE_MIN_KWH, USAGE_MAX_KWH);
+}
+
+function localMockPredict(payload) {
+  // 폴백 예측 = 백엔드 추정식(current)을 그대로 복제. 라이브와의 잔차는 ML 보정분뿐(오프라인 재현 불가).
+  // baseline 은 백엔드의 model-based 계절값을 오프라인 복제할 수 없어 165 고정 유지(설계 범위 밖).
+  const predictedKwh = Math.round(estimateUsageKwh(payload));
   return {
     predicted_kwh: predictedKwh,
     estimated_bill: calculateElectricBill(predictedKwh),
@@ -456,8 +487,8 @@ function getTipCandidates(payload, prediction) {
 
   if (hours > 0) {
     const reducedHours = hours >= 1 ? 1 : 0.5;
-    const powerKw = (payload.aircon_power_w || 650) / 1000;
-    const savingKwh = Math.max(4, Math.round(reducedHours * 30 * powerKw));
+    // 예측과 동일한 전력 모델(타입별 전력·배수) 사용 — 절감량이 예측 변화와 일관.
+    const savingKwh = Math.max(4, Math.round(airconMarginalKwh(reducedHours, payload)));
     candidates.push({
       icon: "❄️",
       title: `에어컨 하루 ${formatHours(reducedHours)}시간 덜 켜기`,
