@@ -122,6 +122,51 @@
 
 ---
 
+## 1-D. 운영 로그 가시성 — Activity Log 권한 차단 + SWA 로그 열람 경로 (2026-06-24)
+
+**배경.** HTML 변경(`733e14f` *Change result's standard price* — `index.html` 1줄) 운영 배포 확인과, "프론트엔드 Activity Log 설치/설정" 요청을 함께 처리하며 정리한 내용.
+
+**배포 확인(추가 작업 없음).** `733e14f`는 이미 `origin/main`에 반영 → SWA 워크플로 Run `28084510126` **success**(1m4s, 2026-06-24 08:07 UTC), 운영 `GET /index.html` **HTTP 200**. push=main 자동배포라 별도 배포 작업 불필요(working tree clean).
+
+**핵심 결론 — Azure Activity Log → Log Analytics 내보내기는 *권한*으로 차단됨(고장 아님).**
+
+| 사실 | 실측 |
+|---|---|
+| Activity Log의 스코프 | **구독 단위**(리소스별 export 불가). export 설정은 `az monitor diagnostic-settings subscription create`로 **구독 스코프**에 써야 함 |
+| 필요한 권한 | `microsoft.insights/diagnosticSettings/write` @ **구독 스코프** |
+| 보유 권한(실측) | 계정 `student015@aisesac.onmicrosoft.com`은 **RG `project-1st-team-3`에 Owner+Contributor** / **구독(`b5a82513…` 대한상공회의소)에는 역할 없음** |
+| 결과 | 구독 스코프 생성 시 **`AuthorizationFailed`** → RG Owner로는 불가 |
+
+> **해결 경로**: (a) 구독 관리자(aisesac)가 구독 스코프 **Monitoring Contributor** 부여 후 위 명령 실행, 또는 (b) 관리자가 직접 생성. Activity Log "보기"는 Portal에서 권한 영향 없이 가능 — 막힌 건 **LA로 export**뿐.
+
+**SWA "Application Insights" 탭 함정(정상 동작).** Portal에서 SWA 리소스의 *Application Insights* 블레이드는 *"App Insights is only applicable to Static Web Apps with at least one function. Add a function to your app to enable App Insights."* 로 비활성 표시 — **정상**이다. 이 탭은 SWA **내장(managed) 함수 API 전용**이고, 이 앱은 함수가 없으며 백엔드는 별도 App Service다(§1-C 연구근거 동일). ⛔ **여기서 함수 추가 금지.** 진짜 프론트 RUM은 독립 리소스 **`appi-frontend-prod-kc-02`**(appId `0fb2a279-140d-436e-bed6-3dfb38124942`)로 브라우저 SDK가 직접 전송한다.
+
+**SWA 로그를 보는 경로(권장순).**
+
+| 보고 싶은 것 | 경로 | 설정 |
+|---|---|---|
+| 사용자 화면 이동·예측·**폴백률**(프론트 활동) | **App Insights `appi-frontend-prod-kc-02`** ▸ Live metrics(즉시)/Logs(`union pageViews,customEvents`) | ✅ 이미 설치(§1-C) |
+| 서버측 HTTP 요청·상태코드 | SWA 리소스-스코프 진단설정 → LA(`StaticSiteHttpLogs`/`StaticSiteDiagnosticLogs`/`AllMetrics`) | ⏸ RG Owner 권한 내 설치 가능(미설치) |
+| 트래픽 양·빠른 그래프 | SWA 리소스 ▸ Metrics | 불필요 |
+| 누가 배포/설정 변경했나 | SWA 리소스 ▸ Activity log 탭(보기) | 불필요(보기만) |
+| 배포 성공/실패 | GitHub Actions(`gh run list/view`) | 불필요 |
+
+**RUM 연동 무결성 4중 검증(2026-06-24, 데이터 0건의 근본원인 규명).** App Insights에 30일 데이터 0건이 관측됐으나 **연동 결함이 아님**을 확정:
+
+| 점검 | 결과 |
+|---|---|
+| config.js 연결문자열 키 `f1e6f761…` == 리소스 InstrumentationKey | ✅ 일치 |
+| 운영 HTML이 config.js + SDK + appinsights.js 로드 | ✅ 3개 참조 |
+| SDK 번들·appinsights.js 운영 응답 | ✅ HTTP 200 |
+| **SRI sha384** (HTML 속성 = 운영 번들 = 로컬 리포) | ✅ `CpE5qT5kx9vrnCESJ…` 3자 완전 일치 |
+| 호스트 판정(`config.js` `!isLocalDev`) → 운영 호스트 주입 | ✅ 정상 |
+
+> **결론:** 데이터 0건은 **RUM이 당일(06:15, `8a1becd`) 막 배포됐고 운영 트래픽이 없어서** + 수집지연(1~5분). 검증법: 운영 URL 방문 → 예측 1회 → `appi-frontend-prod-kc-02` ▸ **Live metrics**(즉시) 또는 Logs `union pageViews,customEvents | where timestamp>ago(1h) | summarize count() by itemType,name`.
+
+> **재발방지(클래스 단위).** ① SWA "Application Insights" 탭 메시지는 **정상**(managed-함수 전용) — 다음 세션이 "모니터링 깨짐"으로 오해하지 말 것, 실데이터는 `appi-frontend-prod-kc-02`. ② Activity Log export는 **구독 스코프 권한** 필요 — RG Owner로는 불가(권한 요청 선행). ③ App Insights 데이터 0 ≠ 연동 깨짐 — 위 4중 점검 후 트래픽/지연부터 의심.
+
+---
+
 ## 2. 구현 검토 — 설계 대조 (✅ 검증된 것)
 
 배포를 실제 수행해, `DEPLOYMENT.md`의 설계가 현실과 맞는지 확인했다.
@@ -243,6 +288,9 @@ curl -s -o /dev/null -w "predict(nokey) %{http_code}\n" -X POST "$BE/api/v1/pred
 | ~~D1~~ | ✅ **백엔드** — 무키 어댑터 `/api/v1/estimate` + 피처빌더(기상 평년값·THI·사용량 추정) + CORS_ORIGINS에 SWA 출처 등록. pytest 39개 통과, 운영 배포 `RuntimeSuccessful` | D0 | **완료** |
 | ~~D2~~ | ✅ **프론트** — `PREDICT_ENDPOINT` → `/api/v1/estimate`(무키, CORS 화이트리스트로 보호). payload·응답 처리 호환 | D0·D1 | **완료**(PR #2) |
 | ~~D3~~ | ✅ **검증** — `/api/v1/estimate` 라이브 200(무키)+CORS, 프론트 production이 어댑터 호출·`source=live` | D1·D2 | **완료** |
+| **E1** | 구독 Activity Log → LA export(§1-D) — ⛔ 권한 차단 | 구독 스코프 Monitoring Contributor 부여 | RG Owner로는 불가. 관리자 부여 or 직접 생성 필요 |
+| **E2** | SWA 리소스-스코프 진단설정(`StaticSiteHttpLogs`/`StaticSiteDiagnosticLogs`/`AllMetrics`) → LA(§1-D) — ⏸ 미설치 | — | RG Owner 권한 내 즉시 가능. 서버측 HTTP 로그가 필요할 때 |
+| **E3** | `index.html:165` `shareBaselineBill` 플레이스홀더 `36.700원`(마침표·단일값) 정리 — 🟡 잔존 | — | 런타임에 `formatBillRange()`로 덮어써져 사용자 영향 거의 없으나 쉼표·범위 컨벤션 불일치 |
 
 ---
 
