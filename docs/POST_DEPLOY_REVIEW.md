@@ -85,6 +85,43 @@
 
 ---
 
+## 1-C. 모니터링 도입 — Application Insights 브라우저 RUM (2026-06-24)
+
+**목표.** 운영 가시성 확보. 특히 문서가 반복 경고한 **"폴백 불투명성"**(화면이 떠도 실제로는 `localMockPredict` 폴백일 수 있음)을 **실측 지표**로 전환.
+
+**연구 근거(공식 문서 팩트체크).**
+- [Monitor Azure Static Web Apps](https://learn.microsoft.com/en-us/azure/static-web-apps/monitor) — *"Using Application Insights with Azure Static Web Apps requires an application with an **API**"*. 이 앱은 SWA에 관리형 API가 없고 백엔드가 분리돼 있어 **포털 토글/앱세팅 연동으론 잡을 서버 로그가 없음** → 의미 있는 경로는 **브라우저 JS SDK(RUM)**.
+- [Application Insights JavaScript SDK Setup](https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk) — 로더 `src`는 *"your own privately hosted one"* 허용 → CSP `script-src 'self'` 하에서 **SDK 셀프호스팅**이 정답. 자기호스팅 전역: `new Microsoft.ApplicationInsights.ApplicationInsights({config:{connectionString}})` → `loadAppInsights()`. 연결 문자열은 *"isn't considered a security token"*(브라우저 노출 전제).
+- [Create workspace-based AI resource (CLI)](https://learn.microsoft.com/en-us/azure/azure-monitor/app/create-workspace-resource) — 클래식 AI는 2024-02 은퇴 → **워크스페이스 기반** 생성(Log Analytics 필수).
+
+**생성한 Azure 리소스(az CLI, 구독 `대한상공회의소`).**
+
+| 리소스 | 이름 | RG / 지역 | 비고 |
+|---|---|---|---|
+| Log Analytics 워크스페이스 | `log-frontend-prod-kc-02` | `project-1st-team-3` / koreacentral | `provisioningState: Succeeded` |
+| Application Insights(워크스페이스 기반) | `appi-frontend-prod-kc-02` | `project-1st-team-3` / koreacentral | `kind: web`, 위 워크스페이스에 연결 |
+
+> SWA 본체 `app-frontend-prod-kc-02`(SKU Standard, East Asia, 호스트 `thankful-desert-0cdb08500…`)와 **동일 인스턴스**임을 디스커버리로 확정(문서상 호스트명↔리소스명 매핑 해소). 수집 엔드포인트: `IngestionEndpoint=https://koreacentral-0.in.applicationinsights.azure.com/`.
+
+**프론트 계측(모두 적용).**
+
+| # | 조치 | 근거/검증 |
+|---|---|---|
+| M-1 | SDK 셀프호스팅 — `assets/vendor/ai.3.4.1.gbl.min.js`(AI JS SDK Web **3.4.1**, 175KB) + `index.html` SRI `sha384-CpE5qT5kx9vrnCESJ18Y+nlf0cq1iPpJfXgbmD0AeZqiL20e0nq7nYnKwzuJ4uhT` | CSP `script-src 'self'` 유지(번들이 self) — CDN/인라인 불필요 |
+| M-2 | `appinsights.js` — 초기화 + 텔레메트리 seam(`singleEnergyTrack`/`singleEnergyTrackPage`). AI 미설정/미로딩/예외 시 **완전 no-op**(앱 동작 무영향) | 로컬 dev 무동작, 운영만 동작 |
+| M-3 | `config.js` — 연결 문자열을 **운영 호스트에서만** 주입(로컬 dev 텔레메트리 오염 방지). 비밀 아님(공식) → 커밋 config에 보관 | 기존 호스트 가드와 동일 패턴 |
+| M-4 | CSP `connect-src`에 수집 엔드포인트 추가(`https://koreacentral-0.in.applicationinsights.azure.com`) | `script-src`는 변경 불필요(self-host). LiveEndpoint는 라이브메트릭 미사용이라 제외 |
+| M-5 | `script.js` 커스텀 이벤트 2종(방어적 호출) — `screen:*` 퍼널 페이지뷰, `prediction_result`(`source`=live/sample/fallback) | **폴백률 실측** = 폴백 불투명성 해소 지표 |
+
+> **재발방지(클래스 단위).**
+> - **CSP↔연결 문자열 커플링:** App Insights 리소스를 다른 지역에 재생성하면 `IngestionEndpoint` 호스트가 바뀌어 **CSP가 텔레메트리를 조용히 차단**한다. `config.js`의 연결 문자열과 `staticwebapp.config.json`의 `connect-src`는 **항상 함께** 갱신(기존 백엔드 URL 커플링과 동일 규칙, CLAUDE.md Monitoring에 명문화).
+> - **번들 회귀 가드:** 운영인데(연결 문자열 주입됨) SDK 전역이 없으면 `appinsights.js`가 콘솔 경고 — `assets/vendor` 번들 404 또는 SRI 해시 불일치(SDK 교체 후 해시 미갱신)를 조기 감지.
+> - **best-effort 원칙:** 텔레메트리 실패가 앱 기능을 깨지 않도록 모든 호출 try/no-op. `node` 부재 환경이라 JSON 유효성·`{}`/`()` 균형·SDK 전역 토큰·로드 순서로 정적 점검 완료.
+
+> **배포 후 검증(브라우저 — 배포·push 후 1회).** SWA URL 접속 → DevTools Network에서 `…koreacentral-0.in.applicationinsights.azure.com/v2/track` **200**(CSP 위반 로그 0건) → 수 분 후 포털 `appi-frontend-prod-kc-02` ▸ *Investigate ▸ Search* 에서 **Page View**(`screen:*`)·**Custom Event**(`prediction_result`) 확인. KQL: `customEvents | where name == "prediction_result" | summarize count() by tostring(customDimensions.source)` 로 live/fallback 비율 관측.
+
+---
+
 ## 2. 구현 검토 — 설계 대조 (✅ 검증된 것)
 
 배포를 실제 수행해, `DEPLOYMENT.md`의 설계가 현실과 맞는지 확인했다.

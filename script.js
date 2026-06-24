@@ -741,6 +741,8 @@ function goTo(index) {
   els.nextButton.textContent = current.cta;
   els.nextButton.disabled = current.id === "loading";
   document.body.dataset.currentScreen = current.id;
+  // 화면 퍼널 추적(splash→start→airconTime→loading→report). 텔레메트리 미설정 시 no-op.
+  (window.singleEnergyTrackPage || function () {})("screen:" + current.id);
   resetScrollPosition();
   if (current.id === "loading") runLoading();
 }
@@ -760,6 +762,13 @@ async function runLoading() {
 
   const [prediction] = await Promise.all([request, minimumReadingTime]);
   state.lastPrediction = prediction;
+  // 예측 결과 추적 — source(live/sample/fallback) 비율은 '폴백 불투명성'의 실측 지표.
+  (window.singleEnergyTrack || function () {})("prediction_result", {
+    source: prediction.source,
+    predicted_kwh: prediction.predicted_kwh,
+    estimated_bill: prediction.estimated_bill,
+    error: prediction.error,
+  });
   renderPrediction(prediction);
   goTo(screens.findIndex((screen) => screen.id === "report"));
 }

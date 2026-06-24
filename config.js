@@ -30,4 +30,13 @@
     // 운영(또는 SWA 프리뷰 등 비로컬) 호스트 → 항상 운영 백엔드 강제
     window.SINGLE_ENERGY_API_BASE_URL = PROD_API_BASE;
   }
+
+  // Application Insights(브라우저 RUM) 연결 문자열.
+  // 비밀이 아님(브라우저 노출 전제, MS 공식) — 운영 호스트에서만 주입해 로컬 dev 텔레메트리 오염 방지.
+  // 수집 엔드포인트(IngestionEndpoint)는 CSP connect-src에도 등록돼야 한다(staticwebapp.config.json).
+  // appi-frontend-prod-kc-02 / RG project-1st-team-3 / koreacentral
+  if (!isLocalDev) {
+    window.SINGLE_ENERGY_APPINSIGHTS_CONNECTION_STRING =
+      "InstrumentationKey=f1e6f761-35ab-4261-894d-f6856858f415;IngestionEndpoint=https://koreacentral-0.in.applicationinsights.azure.com/;LiveEndpoint=https://koreacentral.livediagnostics.monitor.azure.com/;ApplicationId=0fb2a279-140d-436e-bed6-3dfb38124942";
+  }
 })();

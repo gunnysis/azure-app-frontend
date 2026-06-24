@@ -171,7 +171,7 @@ with:
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://app-mlbackend-prod-kc-01-h4a6byekfzhkcday.koreacentral-01.azurewebsites.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://app-mlbackend-prod-kc-01-h4a6byekfzhkcday.koreacentral-01.azurewebsites.net https://koreacentral-0.in.applicationinsights.azure.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
   }
 }
 ```
@@ -179,10 +179,10 @@ with:
 **CSP 각 지시문의 실측 근거**
 | 지시문 | 값 | 근거(이 저장소 실측) |
 |---|---|---|
-| `script-src` | `'self'` | `index.html`에 인라인 `<script>`·`on*=` 핸들러 **0개**, 외부 스크립트(CDN) 없음 → `'unsafe-inline'` 불필요(강화) |
+| `script-src` | `'self'` | `index.html`에 인라인 `<script>`·`on*=` 핸들러 **0개**, 외부 스크립트(CDN) 없음 → `'unsafe-inline'` 불필요(강화). App Insights SDK는 `assets/vendor/`에 **셀프호스팅**(self)이라 CDN 불필요 |
 | `style-src` | `'self'` | 인라인 `style=`·`<style>` **0개**. `el.style.x=` DOM 설정은 CSP 무관. export `<style>`는 **blob 이미지 내부**(라이브 DOM 아님) |
 | `img-src` | `'self' data: blob:` | **리포트 이미지 export가 `URL.createObjectURL`(blob:) 로 SVG/canvas를 그림** — `blob:` 누락 시 **이미지 저장/공유가 깨진다** |
-| `connect-src` | `'self' <백엔드>` | `fetch`는 백엔드 1곳뿐 → 누락 시 예측 요청 차단 |
+| `connect-src` | `'self' <백엔드> <AI 수집엔드포인트>` | `fetch`는 백엔드 1곳 + Application Insights 수집(`koreacentral-0.in.applicationinsights.azure.com`) → 누락 시 각각 예측 요청 / 텔레메트리 차단. AI 리소스 지역 변경 시 호스트도 바뀌니 `config.js` 연결 문자열과 함께 갱신(POST_DEPLOY_REVIEW §1-C) |
 | `font-src` | `'self'` | 폰트는 `assets/fonts` 로컬 |
 
 > **glob 문법(공식 규칙):** 와일드카드 `*`는 **경로 끝에만**, 확장자 필터는 `*.{ext,ext}` 형식만 유효. `/*.css`처럼 쓰지 말고 `/*.{css,js,...}`로 묶는다.

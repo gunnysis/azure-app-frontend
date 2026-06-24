@@ -267,7 +267,13 @@
         </div>
       </section>
     </main>
-    <script src="./config.js?v=20260624-deadcode-cleanup"></script>
-    <script src="./script.js?v=20260624-prev-routing"></script>
+    <script src="./config.js?v=20260624-appinsights"></script>
+    <!-- Application Insights 브라우저 SDK(셀프호스팅 — CSP script-src 'self' 준수). SRI 무결성 고정. -->
+    <script
+      src="./assets/vendor/ai.3.4.1.gbl.min.js"
+      integrity="sha384-CpE5qT5kx9vrnCESJ18Y+nlf0cq1iPpJfXgbmD0AeZqiL20e0nq7nYnKwzuJ4uhT"
+    ></script>
+    <script src="./appinsights.js?v=20260624-appinsights"></script>
+    <script src="./script.js?v=20260624-appinsights"></script>
   </body>
 </html>
