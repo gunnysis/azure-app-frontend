@@ -52,19 +52,6 @@ const els = {
   loadingTitle: document.querySelector("#loadingTitle"),
   loadingCopy: document.querySelector("#loadingCopy"),
   loadingSteps: [...document.querySelectorAll("[data-loading-step]")],
-  riskBadge: document.querySelector("#riskBadge"),
-  resultBillHero: document.querySelector("#resultBillHero"),
-  resultKwhNumber: document.querySelector("#resultKwhNumber"),
-  resultRiskText: document.querySelector("#resultRiskText"),
-  baselineKwhMini: document.querySelector("#baselineKwhMini"),
-  usageDelta: document.querySelector("#usageDelta"),
-  baselineKwh: document.querySelector("#baselineKwh"),
-  myKwh: document.querySelector("#myKwh"),
-  baselineUsageBar: document.querySelector("#baselineUsageBar"),
-  myUsageBar: document.querySelector("#myUsageBar"),
-  usageReason: document.querySelector("#usageReason"),
-  baselineBill: document.querySelector("#baselineBill"),
-  billDelta: document.querySelector("#billDelta"),
   shareReportCard: document.querySelector("#shareReportCard"),
   reportRiskPill: document.querySelector("#reportRiskPill"),
   reportTypeName: document.querySelector("#reportTypeName"),
@@ -90,9 +77,6 @@ const els = {
   shareStatus: document.querySelector("#shareStatus"),
   tipList: document.querySelector("#tipList"),
   summaryAirconHours: document.querySelector("#summaryAirconHours"),
-  summaryAirconType: document.querySelector("#summaryAirconType"),
-  summaryAirconTypeWrap: document.querySelector("#summaryAirconTypeWrap"),
-  summaryAirconPower: document.querySelector("#summaryAirconPower"),
   contactBotButton: document.querySelector("#contactBotButton"),
   contactBotPanel: document.querySelector("#contactBotPanel"),
   contactCloseButton: document.querySelector("#contactCloseButton"),
@@ -271,7 +255,8 @@ function setAirconHoursValue(value, shouldRender = true) {
   if (shouldRender) {
     scheduleAirconTimeHint();
     syncAirconPowerState();
-    renderPrediction();
+    // report 스크린은 airconTime 단계에서 숨겨져 있고, 실제 렌더는 runLoading()에서
+    // 예측 결과로 한 번에 수행한다. 드래그 틱마다 숨은 화면을 재렌더하지 않는다(성능).
   }
 }
 
@@ -381,17 +366,6 @@ function getRisk(kwh, baselineKwh = BASELINE_KWH) {
   if (gap >= 85) return { label: "위험", color: "#ef4444", text: "마포구 1인 가구 기준보다 꽤 높아요." };
   if (gap >= 20) return { label: "주의", color: "#f59e0b", text: "마포구 1인 가구 기준보다 조금 높아요." };
   return { label: "안정", color: "#00a86b", text: "마포구 1인 가구 기준과 비슷해요." };
-}
-
-function getReason(payload, prediction, baselineKwh = BASELINE_KWH) {
-  const gap = Math.round(prediction.predicted_kwh - baselineKwh);
-  const hours = payload.aircon_hours_per_day;
-  const lead = hours > 0
-    ? `핵심은 에어컨을 켰다는 사실보다, 그 시간이 매일 반복될 때 월 사용량 차이로 커진다는 점이에요.`
-    : "에어컨을 쓰지 않는 조건이라 기본 생활 전력 중심으로 계산했어요.";
-  if (gap > 0) return `${lead} 기준보다 ${formatNumber(gap)}kWh 높게 예측됐어요.`;
-  if (gap < 0) return `${lead} 기준보다 ${formatNumber(Math.abs(gap))}kWh 낮게 예측됐어요.`;
-  return `${lead} 기준 사용량과 거의 비슷해 보여요.`;
 }
 
 function getReportProfile(payload, prediction, baselineKwh = BASELINE_KWH) {
@@ -538,7 +512,8 @@ function getTipCandidates(payload, prediction) {
     .slice(0, 3);
 }
 
-function renderAirconTimeHint() {
+// 슬라이더의 진행률/색상 CSS 변수를 현재 사용 시간에 맞춰 갱신하고 시간을 반환한다.
+function applyAirconRangeVisual() {
   const hours = getAirconHours();
   const percent = clamp((hours / 24) * 100, 0, 100);
   const color = getAirconIntensityColor(hours);
@@ -548,6 +523,11 @@ function renderAirconTimeHint() {
   els.airconHoursRange.style.setProperty("--range-color", color);
   els.airconHoursRange.style.setProperty("--range-soft", `${color}22`);
   card?.style.setProperty("--time-color", color);
+  return hours;
+}
+
+function renderAirconTimeHint() {
+  const hours = applyAirconRangeVisual();
 
   if (!state.airconTimeTouched) {
     els.airconTimeHint.hidden = true;
@@ -565,15 +545,7 @@ function renderAirconTimeHint() {
 }
 
 function scheduleAirconTimeHint() {
-  const hours = getAirconHours();
-  const percent = clamp((hours / 24) * 100, 0, 100);
-  const color = getAirconIntensityColor(hours);
-  const card = els.airconHoursRange.closest(".aircon-time-card");
-  els.airconHoursRange.value = String(hours);
-  els.airconHoursRange.style.setProperty("--range-progress", `${percent}%`);
-  els.airconHoursRange.style.setProperty("--range-color", color);
-  els.airconHoursRange.style.setProperty("--range-soft", `${color}22`);
-  card?.style.setProperty("--time-color", color);
+  const hours = applyAirconRangeVisual();
 
   if (!state.airconTimeTouched) {
     renderAirconTimeHint();
@@ -637,14 +609,12 @@ function setAirconType(type) {
     state.referenceInputTouched = false;
     renderAirconTypeButtons();
     renderAirconPowerHint();
-    renderPrediction();
     return;
   }
   state.airconType = AIRCON_TYPE_LABELS[type] ? type : "unknown";
   state.referenceInputTouched = true;
   renderAirconTypeButtons();
   renderAirconPowerHint();
-  renderPrediction();
 }
 
 function renderPrediction(prediction = state.lastPrediction) {
@@ -655,35 +625,10 @@ function renderPrediction(prediction = state.lastPrediction) {
   const risk = getRisk(result.predicted_kwh, baselineKwh);
   const usageGap = Math.round(result.predicted_kwh - baselineKwh);
   const billGap = Math.round(result.estimated_bill - baselineBill);
-  const usageMax = Math.max(260, result.predicted_kwh, baselineKwh);
   const tips = getTipCandidates(payload, result);
   const topTip = tips[0];
   const profile = getReportProfile(payload, result, baselineKwh);
   const billMax = Math.max(result.estimated_bill, baselineBill, 1);
-
-  els.resultKwhNumber.textContent = formatNumber(result.predicted_kwh);
-  els.resultBillHero.textContent = formatBillRange(result.estimated_bill);
-  els.resultRiskText.textContent =
-    usageGap > 0
-      ? `마포 평균보다 ${formatNumber(Math.abs(usageGap))}kWh 더 쓰고, 요금은 ${formatGapRange(Math.abs(billGap))} 더 나올 수 있어요.`
-      : usageGap < 0
-        ? `마포 평균보다 ${formatNumber(Math.abs(usageGap))}kWh 덜 쓰고, 요금은 ${formatGapRange(Math.abs(billGap))} 낮을 수 있어요.`
-        : "마포 평균 사용량과 거의 비슷하게 예측됐어요.";
-  els.riskBadge.textContent = risk.label;
-  els.riskBadge.style.color = risk.color;
-  els.riskBadge.style.background = `${risk.color}1f`;
-  els.baselineKwhMini.textContent = formatNumber(baselineKwh);
-  els.usageDelta.textContent = formatSignedKwh(usageGap);
-  els.usageDelta.style.color = usageGap > 0 ? risk.color : usageGap < 0 ? "#00a86b" : "var(--strong)";
-  els.baselineKwh.textContent = `${formatNumber(baselineKwh)}kWh`;
-  els.myKwh.textContent = `${formatNumber(result.predicted_kwh)}kWh`;
-  els.baselineUsageBar.style.width = `${Math.max(26, (baselineKwh / usageMax) * 100)}%`;
-  els.myUsageBar.style.width = `${Math.max(26, (result.predicted_kwh / usageMax) * 100)}%`;
-  els.myUsageBar.style.background = risk.color;
-  els.usageReason.textContent = getReason(payload, result, baselineKwh);
-  els.baselineBill.textContent = formatBillRange(baselineBill);
-  els.billDelta.textContent = `${billGap >= 0 ? "+" : "-"}${formatGapRange(Math.abs(billGap))}`;
-  els.billDelta.style.color = billGap >= 0 ? risk.color : "#00a86b";
 
   els.shareReportCard.dataset.profile = profile.key;
   els.shareReportCard.style.setProperty("--profile", risk.color);
@@ -790,7 +735,7 @@ function goNext() {
     syncAirconPowerState();
     normalizeAirconPowerInput();
     renderAirconTimeHint();
-    renderPrediction();
+    // renderPrediction()은 runLoading()이 예측 결과로 수행한다(중복 렌더 제거).
     goTo(screens.findIndex((screen) => screen.id === "loading"));
     return;
   }
@@ -1608,6 +1553,22 @@ async function shareReportImage() {
   }
 }
 
+// 재발방지 가드: 마크업에 [data-screen]이 있는데 screens 마법사 배열에 없으면
+// 영원히 활성화되지 않는 "고아 스크린"이다(2026-06-24 dev 머지가 죽은 result
+// 스크린을 되살린 회귀의 클래스). 런타임 비용 없이(1회) 콘솔로 즉시 알린다.
+function warnOnOrphanScreens() {
+  const known = new Set(screens.map((screen) => screen.id));
+  const orphans = els.screens
+    .map((screen) => screen.dataset.screen)
+    .filter((id) => id && !known.has(id));
+  if (orphans.length) {
+    console.warn(
+      "[single-energy] 마법사 배열에 없는 고아 스크린이 있어요(죽은 마크업일 수 있음):",
+      orphans,
+    );
+  }
+}
+
 function init() {
   bindAirconRangeDrag();
   els.airconHoursInput.addEventListener("input", () => {
@@ -1622,17 +1583,14 @@ function init() {
     normalizeAirconHoursInput();
     syncAirconPowerState();
     renderAirconTimeHint();
-    renderPrediction();
   });
   els.airconPowerInput?.addEventListener("input", () => {
     state.referenceInputTouched = true;
     state.airconPowerW = getAirconPowerW();
     renderAirconPowerHint();
-    renderPrediction();
   });
   els.airconPowerInput?.addEventListener("blur", () => {
     normalizeAirconPowerInput({ writeValue: true });
-    renderPrediction();
   });
   els.airconTypeBlock?.addEventListener("toggle", () => {
     if (els.airconTypeBlock.open && hasAirconUsage()) {
@@ -1668,6 +1626,7 @@ function init() {
   renderAirconTimeHint();
   renderPrediction();
   goTo(0);
+  warnOnOrphanScreens();
 
   window.singleEnergyFrontend = {
     buildPayload,

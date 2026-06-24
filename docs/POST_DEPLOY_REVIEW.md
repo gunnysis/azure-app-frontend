@@ -60,6 +60,31 @@
 
 ---
 
+## 1-B. 프론트 코드 정합화 — dev 머지 회귀 정리 (2026-06-24)
+
+**배경.** `Dev (#4)`(`eba12c0`) 머지의 "Sync latest Jjirit frontend"가 **이전에 제거됐던 죽은 `result` 화면을 되살리는 회귀**를 유입했다(`script.js` 1333→1680줄). 설계 정본(CLAUDE.md)은 *"별도 result 화면 없음 — report 화면이 모든 결과 수치를 담는다"* 로 명시돼 있어 코드↔설계가 어긋난 상태였다.
+
+**근본 원인(표면이 아니라 구조).** dev 브랜치가 `result` 화면을 정리한 `fd752d4` **이전 시점의 마크업/스크립트**를 들고 있었고, 머지가 그 구판을 되살렸다. 그 결과:
+- `index.html`에 `data-screen="result"`(`hidden`) `<article>`이 부활 — `screens` 마법사 배열엔 없어 **영원히 활성화되지 않는 고아 화면**.
+- `renderPrediction()`이 매 호출마다 그 숨은 화면의 요소 13개에 헛쓰기. 게다가 이 함수는 **에어컨 슬라이더 드래그 틱마다** 호출돼(숨은 화면을 반복 재렌더) 불필요한 CPU/`innerHTML` 재파싱 발생.
+
+**조치(이번 점검에서 적용).**
+
+| # | 조치 | 근거/검증 |
+|---|---|---|
+| C-1 | `index.html`의 죽은 `result` `<article>` 제거 | 잔존 `data-screen` = `splash·start·airconTime·loading·report` (= `screens` 배열과 정확히 일치) |
+| C-2 | `script.js` 죽은 els 13개 + 미사용 `getReason()` + 미사용 `usageMax`/`summaryAircon{Type,TypeWrap,Power}` els 제거 | 제거 심볼 잔존 참조 grep 0건, els↔HTML id 교차검증 통과 |
+| C-3 | `styles.css` 죽은 result 화면 CSS 제거(`.result-*`/`.bar-*`/`.bill-*`/`.comparison-card`/`.report-chart` + 미디어쿼리 잔재) | 해당 셀렉터 live 사용 0건 확인 후 삭제, `{}` 균형 검증 |
+| C-4 | **성능** — airconTime 입력 핸들러(슬라이더/숫자/타입/소비전력)의 `renderPrediction()` 호출 제거. report는 숨김 상태이고 항상 `runLoading()`이 예측 결과로 1회 렌더한다 | report 진입 경로는 전부 `runLoading()` 경유 확인 → 드래그 중 재렌더 0 |
+| C-5 | 중복 코드 정리 — 슬라이더 시각화 9줄 중복을 `applyAirconRangeVisual()`로 추출 | `renderAirconTimeHint`/`scheduleAirconTimeHint` 공용화 |
+| C-6 | **재발방지(클래스 단위)** — `init()`에 `warnOnOrphanScreens()` 추가. `[data-screen]`이 `screens` 배열에 없으면 콘솔 경고(런타임 비용 1회) | 같은 회귀(고아 화면 부활) 자동 감지 |
+
+> **순효과:** `script.js` 1680→1639줄(죽은 코드 제거분에서 재발방지 가드 `warnOnOrphanScreens` 추가분 상쇄), `styles.css` 3335→3063줄(−272), `index.html` 322→273줄(−49). 사용자 가시 동작 변화 없음(보이는 결과는 모두 report 화면에서 나오며 그대로 유지). `node` 부재 환경이라 `{}`/`()`/`[]` 균형·심볼 잔존·els↔HTML id 교차검증으로 정적 점검.
+>
+> **팩트체크(변경 불필요 확인):** `calculateElectricBill()`의 누진 단가(2024 KEPCO 주택용 저압: 1구간 120·2구간 214.6·3구간 307.3원/kWh, 기본료 910/1600/7300원, 기후환경 9원·연료비조정 5원/kWh, 부가세 10%·전력기금 3.7%)는 현행 고시와 일치 → 정확.
+
+---
+
 ## 2. 구현 검토 — 설계 대조 (✅ 검증된 것)
 
 배포를 실제 수행해, `DEPLOYMENT.md`의 설계가 현실과 맞는지 확인했다.
