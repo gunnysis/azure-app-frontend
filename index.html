@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>찌릿</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260623-brand-svg" />
-    <link rel="stylesheet" href="./styles.css?v=20260623-brand-svg" />
+    <link rel="icon" type="image/svg+xml" href="./assets/brand/jjirit-icon.svg?v=20260624-flow-polish-v3" />
+    <link rel="stylesheet" href="./styles.css?v=20260624-flow-polish-v3" />
   </head>
   <body data-theme="light" data-current-screen="splash">
     <main class="stage">
@@ -30,8 +30,9 @@
         <section class="screens">
           <article class="screen active splash-screen" data-screen="splash">
             <div class="splash-wrap" aria-label="찌릿 서비스 시작 화면">
-              <div class="jjirit-logo-lockup">
-                <img class="jjirit-wordmark" src="./assets/brand/jjirit-logo.svg" alt="찌릿, 전기세 찌릿하기 전" />
+              <div class="splash-brand-hero">
+                <img class="splash-app-icon" src="./assets/brand/jjirit-icon.svg" alt="찌릿이 캐릭터" />
+                <h1>찌릿</h1>
               </div>
             </div>
           </article>
@@ -45,7 +46,6 @@
 
               <div class="onboarding-copy">
                 <h1>이번 달 전기세,<br />미리 볼까요?</h1>
-                <p>에어컨 사용 시간만 알려주면 예상 요금 범위를 보여드려요.</p>
               </div>
             </div>
           </article>
@@ -53,7 +53,7 @@
           <article class="screen" data-screen="airconTime">
             <div class="section-head">
               <h2>에어컨은 하루에 얼마나 쓰나요?</h2>
-              <p class="plain-copy">여름철 하루 평균 기준으로 골라주세요.</p>
+              <p><span>하루 평균 사용시간은 넉넉하게 잡아주세요.</span><span>정확하지 않아도 괜찮아요.</span></p>
             </div>
 
             <div class="range-card aircon-time-card">
@@ -75,12 +75,14 @@
                 </div>
               </div>
 
-              <p id="airconTimeHint">하루 4시간이면 한 달 약 120시간 사용으로 계산해요.</p>
+              <p id="airconTimeHint" hidden></p>
             </div>
 
-            <div class="aircon-type-card" id="airconTypeBlock">
-              <span>에어컨 종류</span>
-              <div class="aircon-type-options" role="radiogroup" aria-label="에어컨 종류 선택">
+            <details class="aircon-reference-card mock-only" id="airconTypeBlock">
+              <summary class="reference-card-head">
+                <span>참고용 입력</span>
+              </summary>
+              <div class="aircon-type-options" role="group" aria-label="에어컨 종류 참고용 선택">
                 <button type="button" data-aircon-type="fixed" aria-pressed="false">
                   <strong>정속형</strong>
                   <small>켜졌다 꺼지는 방식</small>
@@ -94,28 +96,22 @@
                   <small>평균값으로 계산</small>
                 </button>
               </div>
-            </div>
 
-            <details class="advanced-input">
-              <summary>
-                <strong>소비전력도 입력할래요</strong>
-              </summary>
-              <div class="advanced-input-body">
-                <label class="power-field" for="airconPowerInput">
-                  <span>에어컨 소비전력</span>
-                  <div>
-                    <input id="airconPowerInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="예: 650" />
-                    <b>W</b>
-                  </div>
-                </label>
-                <p id="airconPowerHint">모르면 비워둬도 괜찮아요. 평균값으로 계산해요.</p>
-              </div>
+              <label class="power-field reference-power-field" for="airconPowerInput">
+                <span>에어컨 소비전력</span>
+                <div>
+                  <input id="airconPowerInput" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="예: 650" />
+                  <b>W</b>
+                </div>
+              </label>
+              <p id="airconPowerHint" hidden>참고용 입력이에요. 현재 예측은 사용 시간을 중심으로 계산해요.</p>
             </details>
 
           </article>
 
           <article class="screen" data-screen="loading">
             <div class="loading-wrap">
+              <img class="loading-mascot" src="./assets/brand/jjirit-icon.svg" alt="찌릿이 캐릭터" />
               <div class="meter-scene" aria-hidden="true">
                 <div class="meter-phone">
                   <span></span>
@@ -125,8 +121,57 @@
                 <div class="orbit-dot dot-one"></div>
                 <div class="orbit-dot dot-two"></div>
               </div>
-              <h2 id="loadingTitle">찌릿이가 이번 달 전기세를 읽고 있어요</h2>
-              <p id="loadingCopy">사용 시간과 마포구 기준값을 맞춰보고 있어요.</p>
+              <h2 id="loadingTitle">사용자 응답을<br />확인하고 있어요</h2>
+              <p id="loadingCopy" hidden></p>
+            </div>
+          </article>
+
+          <article class="screen" data-screen="result" hidden>
+            <div class="result-report-card">
+              <div class="result-hero">
+                <div>
+                  <span>이번 달 예상 전기요금</span>
+                  <strong id="resultBillHero">25,900 ~ 35,900원</strong>
+                  <p id="resultRiskText">마포 평균보다 24kWh 더 쓰고, 요금은 약간 높게 나올 수 있어요.</p>
+                </div>
+                <div class="result-badge" id="riskBadge">주의</div>
+              </div>
+
+              <div class="result-impact-grid">
+                <div>
+                  <span>예상 사용량</span>
+                  <strong><b id="resultKwhNumber">189</b>kWh</strong>
+                </div>
+                <div>
+                  <span>마포 기준</span>
+                  <strong><b id="baselineKwhMini">165</b>kWh</strong>
+                </div>
+                <div>
+                  <span>사용량 차이</span>
+                  <strong id="usageDelta">+24kWh</strong>
+                </div>
+                <div>
+                  <span>요금 차이</span>
+                  <strong id="billDelta">+0 ~ 8,900원</strong>
+                </div>
+              </div>
+
+              <div class="bar-compare" aria-label="기준 사용량과 내 예상 사용량 비교">
+                <div class="bar-row baseline">
+                  <span>기준 사용량</span>
+                  <div class="bar-track"><i id="baselineUsageBar"></i></div>
+                  <b id="baselineKwh">165kWh</b>
+                </div>
+                <div class="bar-row mine">
+                  <span>내 예상</span>
+                  <div class="bar-track"><i id="myUsageBar"></i></div>
+                  <b id="myKwh">189kWh</b>
+                </div>
+              </div>
+
+              <p id="usageReason">에어컨을 하루 4시간 사용하는 조건이라 기준보다 약 24kWh 높게 계산했어요.</p>
+              <small>정확한 고지서가 아니라, 지금 조건으로 미리 보는 예상값이에요.</small>
+              <span id="baselineBill" hidden>21,200 ~ 31,200원</span>
             </div>
           </article>
 
@@ -144,8 +189,10 @@
                   <span id="reportOneLine">전기세가 슬슬 말을 걸고 있어요.</span>
                 </div>
                 <div class="report-visual" id="reportVisual" aria-hidden="true">
+                  <img class="report-jjirit-img" id="reportJjiritImg" src="./assets/brand/characters/jjirit-basic.png" alt="" />
                   <span class="visual-main">❄️</span>
                   <span class="visual-sub">₩</span>
+                  <span class="report-character-mood" id="reportCharacterMood">냉방 체크</span>
                 </div>
               </div>
 
@@ -177,7 +224,7 @@
               <section class="report-reason">
                 <div class="reason-icon" id="reasonIcon">↗</div>
                 <div>
-                  <span>가장 큰 요인</span>
+                  <span>예측 포인트</span>
                   <strong id="shareReason">에어컨 사용 조건이 요금 상승에 크게 반영됐어요</strong>
                 </div>
               </section>
@@ -197,6 +244,15 @@
               <p class="report-disclaimer">AI 예측 결과라 실제 청구요금과 다를 수 있어요.</p>
             </div>
 
+            <div class="tip-list compact-tips" id="tipList" aria-label="조정 행동 목록"></div>
+
+            <div class="summary-card">
+              <div><span>지역</span><strong>마포구</strong></div>
+              <div><span>주거</span><strong>원룸</strong></div>
+              <div><span>가구</span><strong>1인</strong></div>
+              <div><span>하루 사용</span><strong id="summaryAirconHours">4시간</strong></div>
+            </div>
+
             <div class="report-actions">
               <button class="share-action secondary" type="button" id="saveImageButton">
                 <span>⬇</span>
@@ -210,17 +266,6 @@
 
             <div class="report-status" id="shareStatus" role="status" aria-live="polite"></div>
 
-            <div class="tip-list compact-tips" id="tipList" aria-label="조정 행동 목록"></div>
-
-            <div class="summary-card">
-              <div><span>지역</span><strong>마포구</strong></div>
-              <div><span>주거</span><strong>원룸</strong></div>
-              <div><span>가구</span><strong>1인</strong></div>
-              <div><span>하루 사용</span><strong id="summaryAirconHours">4시간</strong></div>
-              <div id="summaryAirconTypeWrap"><span>에어컨 타입</span><strong id="summaryAirconType">잘 모름</strong></div>
-              <div><span>소비전력</span><strong id="summaryAirconPower">평균값</strong></div>
-            </div>
-
             <button class="report-reset-button" type="button" id="resetReportButton">처음으로 돌아가기</button>
           </article>
         </section>
@@ -229,9 +274,49 @@
           <button class="ghost-button" type="button" id="backButton">이전</button>
           <button class="primary-button" type="button" id="nextButton">시작하기</button>
         </nav>
+
+        <div class="contact-widget" aria-label="상담 챗봇 목업">
+          <button class="contact-bot" type="button" id="contactBotButton" aria-expanded="false" aria-controls="contactBotPanel">
+            <span>?</span>
+            <strong>상담</strong>
+          </button>
+          <div class="contact-panel" id="contactBotPanel" role="dialog" aria-label="찌릿 상담봇 안내" hidden>
+            <div class="contact-panel-header">
+              <strong>찌릿 상담봇</strong>
+              <button type="button" id="contactCloseButton" aria-label="상담창 닫기">×</button>
+            </div>
+            <div class="chat-messages" id="chatMessages" aria-live="polite">
+              <div class="chat-message bot">
+                <span>찌릿</span>
+                <p>전기세 리포트가 헷갈리면 물어봐 주세요. 지금 화면의 입력값과 예측 결과를 기준으로 답할게요.</p>
+              </div>
+            </div>
+            <div class="chat-quick-actions" aria-label="추천 질문">
+              <button type="button" data-demo-question="왜 위험으로 나왔어?">왜 위험?</button>
+              <button type="button" data-demo-question="어떻게 줄이면 돼?">절약 방법</button>
+              <button type="button" data-demo-question="이 요금 믿어도 돼?">믿어도 돼?</button>
+              <button type="button" data-demo-question="인버터면 뭐가 달라?">인버터 차이</button>
+            </div>
+            <form class="chat-form" id="chatForm">
+              <label class="sr-only" for="chatInput">상담 메시지 입력</label>
+              <textarea id="chatInput" rows="1" placeholder="예: 왜 위험으로 나왔어?"></textarea>
+              <button type="submit">보내기</button>
+            </form>
+            <details class="feedback-box">
+              <summary>오류/피드백 제보</summary>
+              <form id="feedbackForm">
+                <label class="sr-only" for="feedbackInput">오류 또는 피드백 내용</label>
+                <textarea id="feedbackInput" rows="2" placeholder="예: 예상 요금 범위가 이상해요."></textarea>
+                <button type="submit">메일로 보내기</button>
+              </form>
+              <p id="feedbackStatus" role="status" aria-live="polite"></p>
+            </details>
+            <small>AI 답변은 참고용이며 실제 청구요금과 다를 수 있어요.</small>
+          </div>
+        </div>
       </section>
     </main>
-    <script src="./config.js?v=20260623-deploy-guard"></script>
-    <script src="./script.js?v=20260623-estimate-api"></script>
+    <script src="./config.js?v=20260624-flow-polish-v3"></script>
+    <script src="./script.js?v=20260624-flow-polish-v3"></script>
   </body>
 </html>
