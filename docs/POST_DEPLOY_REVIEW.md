@@ -198,7 +198,7 @@ curl -s -o /dev/null -w "predict(nokey) %{http_code}\n" -X POST "$BE/api/v1/pred
 
 | 후보 | 작업 | 선행 | 비고 |
 |---|---|---|---|
-| **A** | `docs/`·`README.md` 문서 최신화분 커밋 | — | push 시 무해한 .md 재배포 1회(진행 중) |
+| ~~A~~ | ✅ `docs/`·`README.md`·`CLAUDE.md` 문서 라이브 정합화 커밋 | — | **완료**(2026-06-24). §1-B 회귀정리 반영 + `CLAUDE.md` 라인수(`~1330`→`~1640`)·캐시버스터 예시(`20260624-deadcode-cleanup`) 갱신 |
 | ~~B~~ | ✅ `actions/checkout@v3 → @v5` 상향(F-1) — **완료** | — | @v4 무효 확인 후 @v5 적용·커밋 완료 |
 | ~~C1~~ | ✅ `DEPLOYMENT.md` §2.1에 검증된 SWA 리소스명·호스트네임·토큰 시크릿 기입 — **완료**(2026-06-23) | — | `az staticwebapp` 실측값 반영 |
 | **C2** | 브라우저 이미지 export 런타임 검증(F-2) — 🟡 잔존 | — | CSP 헤더는 통과 확인, 캔버스 클릭만 수동(헤드리스 불가) |

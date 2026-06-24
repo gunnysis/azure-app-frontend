@@ -18,11 +18,11 @@ python -m http.server 4202 --bind 127.0.0.1   # equivalent, any OS
 
 Then open `http://127.0.0.1:4202/index.html`. Opening `index.html` directly via `file://` also renders, but `fetch` to a backend won't work from `file://`.
 
-There is no lint/build/test tooling, and no JS runtime in this environment (`node` is absent — syntax-check by other means, e.g. a brace-balance scan or a browser). Edits take effect on browser refresh. Static asset links carry a `?v=...` cache-busting query (e.g. `styles.css?v=20260623-brand-svg`) — bump it when you need clients to re-fetch. For debugging, the app exposes `window.singleEnergyFrontend` (`buildPayload()`, `calculateElectricBill()`, `getPredictEndpoint()`) in the browser console.
+There is no lint/build/test tooling, and no JS runtime in this environment (`node` is absent — syntax-check by other means, e.g. a brace-balance scan or a browser). Edits take effect on browser refresh. Static asset links carry a `?v=...` cache-busting query (e.g. `styles.css?v=20260624-deadcode-cleanup`) — bump it when you need clients to re-fetch. For debugging, the app exposes `window.singleEnergyFrontend` (`buildPayload()`, `calculateElectricBill()`, `getPredictEndpoint()`) in the browser console.
 
 ## Architecture
 
-Everything is at the repo root: `index.html` (markup for all screens), `styles.css`, and `script.js` (all logic, ~1330 lines, no modules). `config.js` is a small host-aware config seam loaded before `script.js`. Brand SVGs live in `assets/brand/` (`jjirit-icon.svg`, `jjirit-logo.svg`); display fonts (Moneygraphy) in `assets/fonts/`.
+Everything is at the repo root: `index.html` (markup for all screens), `styles.css`, and `script.js` (all logic, ~1640 lines, no modules). `config.js` is a small host-aware config seam loaded before `script.js`. Brand SVGs live in `assets/brand/` (`jjirit-icon.svg`, `jjirit-logo.svg`); display fonts (Moneygraphy) in `assets/fonts/`.
 
 **Screen wizard.** The UI is a single phone-frame of `<article class="screen">` elements driven by the `screens` array (near the top of `script.js`): `splash → start → airconTime → loading → report` (5 steps; progress shows `n/5`). Navigation is a hand-rolled state machine — `goTo(index)` / `goNext()` toggle the `.active` class and `body[data-current-screen]`. `state` holds the wizard index plus the user's aircon inputs. All DOM references are cached up front in the `els` object. The final `report` screen carries all result figures — there is no separate result screen, and `renderPrediction()` writes only to report/summary elements.
 
