@@ -47,12 +47,12 @@ POST {API_BASE_URL}/api/v1/estimate     # 무키(API Key 불필요)
 
 ## 4. 응답 JSON
 
+실제 백엔드 응답(2026-06-24 기준):
+
 ```json
 {
   "predicted_kwh": 238.0,
-  "estimated_bill": 42600,
-  "baseline_kwh": 165,
-  "baseline_bill": 26200,
+  "baseline_kwh": 172.0,
   "month": 7,
   "model_version": "v1",
   "elapsed_ms": 123.4,
@@ -64,20 +64,22 @@ POST {API_BASE_URL}/api/v1/estimate     # 무키(API Key 불필요)
 }
 ```
 
+> ℹ️ **요금(`estimated_bill`/`baseline_bill`)은 백엔드가 내려주지 않습니다(설계).** 요금식을 백엔드·프론트 두 곳에 두면 드리프트가 생기므로, 백엔드는 **kWh만**(`predicted_kwh`·`baseline_kwh`) 제공하고 **요금은 프론트가 단일 요금식(`calculateElectricBill`)으로** 계산합니다. 프론트 `normalizePredictionResponse`는 응답에 `estimated_bill`이 있으면 쓰고 없으면 자체 계산하므로, 현재는 항상 자체 계산 경로입니다.
+
 ## 5. 응답 필드 설명
 
-| 필드 | 타입 | 설명 |
-| --- | --- | --- |
-| `predicted_kwh` | number | ML 모델이 예측한 이번 달 전기 사용량(프론트 필수 필드) |
-| `estimated_bill` | number \| 없음 | 예상 전기요금. 없으면 프론트가 `predicted_kwh`로 자체 계산 |
-| `baseline_kwh` | number \| 없음 | 마포구 1인 가구 기준 사용량. 없으면 프론트 기본값 `165kWh` 사용 |
-| `baseline_bill` | number \| 없음 | 기준 사용량의 예상 요금. 없으면 프론트가 `baseline_kwh`로 자체 계산 |
-| `month` | number | 예측에 사용된 월(투명성) |
-| `model_version` | string \| null | 모델 버전 |
-| `elapsed_ms` | number | ML 호출 소요(ms) |
-| `features_used` | object | 어댑터가 합성한 8개 모델 입력(디버깅용) |
+| 필드 | 타입 | 제공 | 설명 |
+| --- | --- | --- | --- |
+| `predicted_kwh` | number | ✅ 항상 | ML 모델이 예측한 이번 달 전기 사용량(프론트 필수 필드) |
+| `baseline_kwh` | number \| null | ✅ (null 가능) | **계절성 기준 사용량** — 같은 월·기상에서 '에어컨 OFF' 가정의 model-based 예측. 백엔드가 같은 ML 호출에 동봉. `null`(모델이 기준 행 미반환)이면 프론트 기본값 `165kWh` 폴백 |
+| `month` | number | ✅ 항상 | 예측에 사용된 월(투명성) |
+| `model_version` | string \| null | ✅ | 모델 버전 |
+| `elapsed_ms` | number | ✅ 항상 | ML 호출 소요(ms) |
+| `features_used` | object | ✅ 항상 | 어댑터가 합성한 8개 모델 입력(디버깅용) |
+| `estimated_bill` | number | ❌ 미제공 | **백엔드 미제공** — 프론트가 `predicted_kwh`로 계산(요금식 단일 소스) |
+| `baseline_bill` | number | ❌ 미제공 | **백엔드 미제공** — 프론트가 `baseline_kwh`로 계산 |
 
-> 프론트는 `predicted_kwh`만 필수로 사용합니다. `estimated_bill`, `baseline_kwh`, `baseline_bill`은 백엔드가 주면 그대로 쓰고, 없으면 프론트 기본값/계산식으로 화면을 구성합니다. 발표 정확도를 높이려면 백엔드에서 기준값까지 내려주는 편이 가장 깔끔합니다.
+> 프론트는 `predicted_kwh`(필수)와 `baseline_kwh`(비교 기준)를 사용합니다. 기준선은 이제 백엔드가 **계절성 model-based 값**으로 내려주므로(고정 165 → 월별 동적), 비교 정확도가 올라갑니다. 요금은 백엔드가 내려주지 않고 프론트 단일 요금식으로 계산합니다(드리프트 방지).
 
 ## 6. 어댑터 동작(8피처 합성)
 
@@ -126,7 +128,8 @@ window.singleEnergyFrontend.buildPayload()
 - ✅ 백엔드 어댑터(`/api/v1/estimate`) 운영 배포 — 무키 POST → 200
 - ✅ 백엔드 `CORS_ORIGINS`에 SWA 운영 출처 추가 → `Access-Control-Allow-Origin` = SWA 출처 확인
 - ✅ 프론트 라이브에서 `source=live` 확인(실제 ML 예측 동작)
-- ⚠️ 현재 프론트는 기준 사용량/기준 요금이 응답에 없으면 fallback 기준값(`165kWh`)으로 비교합니다. 백엔드에서 `baseline_kwh`, `baseline_bill`을 내려주면 화면 비교 기준도 동적으로 바뀝니다.
+- ✅ **계절성 기준선(2026-06-24)** — 백엔드가 `baseline_kwh`(같은 월·기상 '에어컨 OFF' model-based 예측)를 같은 ML 호출에 동봉해 내려줌. 프론트는 이미 `baseline_kwh`를 읽으므로 비교 기준이 **고정 165 → 월별 동적**으로 자동 전환(프론트 코드 변경 불필요). `null`이면 165 폴백.
+- ✅ **타임아웃 좌표 정합(2026-06-24)** — 백엔드 `/estimate`가 ML 호출에 총 예산 **6.0s**(`estimate_ml_deadline_s`)를 강제. 프론트 abort(**8s**) > 백엔드 예산(6s)이므로, 느린 ML 도 백엔드가 6s 내 504로 끊어 즉시 fallback → 프론트 8s abort 가 살아있는 백엔드를 선점하지 않음. 8s 값을 바꿀 때는 **백엔드 예산보다 크게** 유지할 것(`script.js`의 `requestPrediction` AbortController).
 
 정확도(후속):
 
