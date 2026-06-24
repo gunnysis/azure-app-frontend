@@ -308,6 +308,10 @@ const USAGE_FALLBACK_POWER_W = 650;
 const USAGE_MIN_KWH = 85;
 const USAGE_MAX_KWH = 650;
 const SHORT_RUN_BONUS_KWH = 8; // 0<h≤1 단시간 가동의 고정 점화/대기 비용
+// 발견 C 대응(백엔드 정합): 모델은 current_usage를 라벨로 무시 → 백엔드가 에어컨 신호를
+// prev_year_usage 로 라우팅. 폴백은 그 모델 반응대역을 오프라인 근사한다.
+const USAGE_DUTY_CYCLE = 0.6; // 압축기 평균 가동률. 백엔드 AIRCON_DUTY_CYCLE와 동일.
+const MODEL_PREV_MAX_KWH = 400; // 폴백 표시 상한(라이브 모델 반응 상한 미러). 백엔드 MODEL_PREV_MAX_KWH와 동일.
 
 // 에어컨 가동의 월 기여 kWh(비례분). base/단시간보정/clamp 제외 — 예측(estimateUsageKwh)과
 // 절감 팁(getTipCandidates)이 공유하는 단일 전력 모델(중복·드리프트 차단).
@@ -319,7 +323,7 @@ function airconMarginalKwh(hours, payload) {
   const defaultPower = USAGE_TYPE_DEFAULT_POWER_W[type] ?? USAGE_FALLBACK_POWER_W;
   const powerW = payload.aircon_power_w || defaultPower || USAGE_FALLBACK_POWER_W;
   const multiplier = USAGE_TYPE_MULTIPLIER[type] ?? 1.0;
-  return hours * USAGE_DAYS_PER_MONTH * (powerW / 1000) * multiplier;
+  return hours * USAGE_DAYS_PER_MONTH * (powerW / 1000) * multiplier * USAGE_DUTY_CYCLE;
 }
 
 // 백엔드 estimate_usage 의 current(올해 사용량 추정) 산식 포팅.
@@ -331,9 +335,10 @@ function estimateUsageKwh(payload) {
 }
 
 function localMockPredict(payload) {
-  // 폴백 예측 = 백엔드 추정식(current)을 그대로 복제. 라이브와의 잔차는 ML 보정분뿐(오프라인 재현 불가).
+  // 폴백 예측 = 백엔드 추정식(current)을 복제하되, 라이브 모델이 prev_year_usage 를 ~400 에서
+  // 포화시키므로 같은 상한(MODEL_PREV_MAX_KWH)으로 근사한다(잔차=모델 압축분, graceful 허용).
   // baseline 은 백엔드의 model-based 계절값을 오프라인 복제할 수 없어 165 고정 유지(설계 범위 밖).
-  const predictedKwh = Math.round(estimateUsageKwh(payload));
+  const predictedKwh = Math.round(Math.min(estimateUsageKwh(payload), MODEL_PREV_MAX_KWH));
   return {
     predicted_kwh: predictedKwh,
     estimated_bill: calculateElectricBill(predictedKwh),
