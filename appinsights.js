@@ -47,10 +47,36 @@
         autoTrackPageVisitTime: true,
         // 이 앱은 History API 라우팅이 아니라 수동 상태머신 → 자동 라우트추적 끄고 화면 전환은 직접 trackPageView.
         enableAutoRouteTracking: false,
-        disableExceptionTracking: false, // window.onerror/unhandledrejection 수집(런타임 회귀 조기 발견)
+        // disableExceptionTracking:false → window.onerror 자동수집(동기 런타임 에러).
+        disableExceptionTracking: false,
+        // ★ onerror만으로는 unhandled promise rejection이 안 잡힌다 — 별도 플래그이고 기본값 false
+        //   (MS 공식 javascript-sdk-configuration 확인). 이 앱은 requestPrediction·Promise.all·
+        //   이미지 내보내기 등 async/Promise 중심이라 비동기 회귀가 정확히 이 경로로 샌다.
+        //   폴백이 에러를 삼켜 화면은 멀쩡해도(=폴백 불투명성) 원인은 여기로만 보이므로 명시 수집.
+        enableUnhandledPromiseRejectionTracking: true,
       },
     });
     appInsights.loadAppInsights();
+
+    // 모든 텔레메트리에 클라우드 역할 + 앱 버전 스탬핑(MS 공식 권장: addTelemetryInitializer).
+    //  - ai.cloud.role: Application Map에서 'jjirit-frontend'로 식별(별도 ML 백엔드와 구분).
+    //  - ai.application.ver: application_Version 컬럼 → RUM을 배포 릴리스와 상관(회귀 추적·재발방지).
+    // loadAppInsights() 직후 인스턴스가 준비되므로 직접 등록(npm/모듈 패턴, queue 래핑 불필요).
+    try {
+      var appVersion = window.SINGLE_ENERGY_APP_VERSION;
+      appInsights.addTelemetryInitializer(function (envelope) {
+        if (!envelope || !envelope.tags) {
+          return;
+        }
+        envelope.tags["ai.cloud.role"] = "jjirit-frontend";
+        if (appVersion) {
+          envelope.tags["ai.application.ver"] = appVersion;
+        }
+      });
+    } catch (e) {
+      /* 이니셜라이저 등록 실패는 무시 — 텔레메트리는 보조 기능, 앱 동작 불간섭 */
+    }
+
     appInsights.trackPageView(); // 최초 진입 1회
 
     // seam을 실제 구현으로 교체.
