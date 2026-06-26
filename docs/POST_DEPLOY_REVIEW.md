@@ -6,7 +6,7 @@
 > **배포 커밋:** `fd752d4` — *운영 배포 준비: 정적 사이트 정리 + SWA 설정 추가*
 > **연계 문서:** [`DEPLOYMENT.md`](./DEPLOYMENT.md) (구현 설계서/운영 정보)
 > **SWA URL:** 🟢 라이브 검증 완료 → **https://thankful-desert-0cdb08500.7.azurestaticapps.net/**
-> **상태:** 🟢 **정적 사이트 배포 성공·URL/보안헤더 라이브 검증** / 🟢 **dev→프로덕션 오배포 사건 근본 해결·재발방지 적용**(§1-A) / 🟢 **백엔드 실연동 5계층 어댑터로 해소·라이브 `source=live` 검증**(§3, 2026-06-23) — 예측이 **실제 ML 모델**로 동작
+> **상태:** 🟢 **정적 사이트 배포 성공·URL/보안헤더 라이브 검증** / 🟢 **dev→프로덕션 오배포 사건 근본 해결·재발방지 적용**(§1-A) / 🟢 **백엔드 실연동 5계층 어댑터로 해소·라이브 `source=live` 검증**(§3, 2026-06-23) — 예측이 **실제 ML 모델**로 동작 / 🟢 **브라우저 RUM(App Insights) 도입**(§1-C) + **비동기 예외 수집 근본수정·릴리스 상관**(§1-E, 2026-06-25)
 
 이 문서는 2026-06-23 **실제 배포를 수행한 결과**와, 그 결과를 설계(`DEPLOYMENT.md`)·백엔드 코드(`../../azure-app-backend`)와 대조한 **구현 검토**를 한 곳에 정리한다. §3·§5는 **curl 라이브 실측 + 백엔드 소스 대조**로 사실 확인했다. 이후 작업은 §6(다음 작업 후보)을 근거로 지시받아 진행한다.
 
@@ -167,6 +167,27 @@
 
 ---
 
+## 1-E. RUM 근본수정 — 비동기 예외 수집 누락 + 릴리스 상관 (2026-06-25 · `46c4ea7`)
+
+**배경.** §1-C에서 도입한 RUM(M-1~M-5)의 예외 수집 설정을 MS 공식 문서와 대조하던 중, 주석이 주장하던 동작과 실제 SDK 동작이 어긋난 것을 발견 → 근본수정.
+
+**근본원인(팩트체크).** `appinsights.js` 주석은 `disableExceptionTracking:false`가 `window.onerror`(동기 에러)와 `unhandledrejection`(비동기 프로미스 거부)을 **둘 다** 수집한다고 했으나, [MS Learn *JavaScript SDK configuration*](https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk-configuration)(2026-03-06)상 unhandled promise rejection은 **별도 플래그** `enableUnhandledPromiseRejectionTracking`(**기본값 `false`**)가 필요. 즉 동기 에러만 수집되고 **비동기 거부는 미수집** 상태였다. 이 앱은 `requestPrediction`·`Promise.all`·이미지 내보내기 등 async/Promise 중심이고, **폴백이 에러를 삼켜 화면은 정상**(=폴백 불투명성)이라 비동기 회귀가 정확히 이 사각지대로 샜다.
+
+**조치(모두 적용 · `46c4ea7`).**
+
+| # | 조치 | 근거/검증 |
+|---|---|---|
+| M-6 | `appinsights.js` config에 **`enableUnhandledPromiseRejectionTracking: true`** 명시 + 허위 주석 정정 | MS 공식 권장. 폴백이 삼키는 비동기 거부가 이제 `exceptions`로 수집 → 폴백 불투명성 *진단가능*화 |
+| M-7 | `addTelemetryInitializer`로 **모든** 텔레메트리에 `ai.cloud.role=jjirit-frontend`(App Map에서 별도 ML 백엔드와 구분) + `ai.application.ver=SINGLE_ENERGY_APP_VERSION` 스탬핑 | MS 공식 권장 패턴. `application_Version` 컬럼 채워져 RUM↔배포 릴리스 상관 |
+| M-8 | `config.js`에 **`SINGLE_ENERGY_APP_VERSION`** 도입(`index.html` `?v=` 캐시버스트와 동기, 현재 `20260625-rum-enrich`) | 버전 단일 출처. 회귀가 보이면 "어느 배포부터"가 필터 한 줄(추측 아님) |
+| M-9 | `index.html` 3개 스크립트 캐시버스트 `20260624-appinsights`→`20260625-rum-enrich` bump | 클라이언트 재페치 강제. **vendor SDK 번들·SRI·CSP·수집 엔드포인트는 불변**(영향 없음) |
+
+> **재발방지(클래스 단위).** ① **공식 문서로 SDK 동작 검증** — 주석/직관이 아니라 MS Learn 설정 표로 플래그별 기본값 확인(이번처럼 "둘 다 잡힌다"는 추정이 실제론 한쪽만이었음). ② **버전 단일 출처** — `SINGLE_ENERGY_APP_VERSION`(config.js)과 `?v=`(index.html)는 **항상 함께** bump(CLAUDE.md Monitoring에 명문화). 어긋나면 `application_Version`이 실제 배포와 불일치해 릴리스 상관이 거짓이 됨. ③ best-effort 불변 — initializer 등록도 try/no-op로 감싸 앱 동작 무영향. `node` 부재 환경이라 `{}`/`()`/`[]` 균형 스캔으로 정적 점검.
+
+> **배포 검증.** SWA 워크플로 Run `28153040695` **success**(53s, 2026-06-25 07:05 UTC), push=main 자동배포. 텔레메트리 라이브 확인(트래픽+1~5분 지연 후): `appi-frontend-prod-kc-02` ▸ Logs — `union pageViews,customEvents,exceptions | where application_Version == "20260625-rum-enrich" and cloud_RoleName == "jjirit-frontend"`.
+
+---
+
 ## 2. 구현 검토 — 설계 대조 (✅ 검증된 것)
 
 배포를 실제 수행해, `DEPLOYMENT.md`의 설계가 현실과 맞는지 확인했다.
@@ -280,7 +301,7 @@ curl -s -o /dev/null -w "predict(nokey) %{http_code}\n" -X POST "$BE/api/v1/pred
 
 | 후보 | 작업 | 선행 | 비고 |
 |---|---|---|---|
-| ~~A~~ | ✅ `docs/`·`README.md`·`CLAUDE.md` 문서 라이브 정합화 커밋 | — | **완료**(2026-06-24). §1-B 회귀정리 반영 + `CLAUDE.md` 라인수(`~1330`→`~1640`)·캐시버스터 예시(`20260624-deadcode-cleanup`) 갱신 |
+| ~~A~~ | ✅ `docs/`·`README.md`·`CLAUDE.md` 문서 라이브 정합화 커밋 | — | **완료**(2026-06-24). §1-B 회귀정리 반영 + `CLAUDE.md` 라인수(`~1330`→`~1640`)·캐시버스터 예시(`20260624-deadcode-cleanup`) 갱신. RUM enrich(`46c4ea7`) 정합화는 §1-E·`CLAUDE.md` Monitoring 추가(2026-06-25) |
 | ~~B~~ | ✅ `actions/checkout@v3 → @v5` 상향(F-1) — **완료** | — | @v4 무효 확인 후 @v5 적용·커밋 완료 |
 | ~~C1~~ | ✅ `DEPLOYMENT.md` §2.1에 검증된 SWA 리소스명·호스트네임·토큰 시크릿 기입 — **완료**(2026-06-23) | — | `az staticwebapp` 실측값 반영 |
 | **C2** | 브라우저 이미지 export 런타임 검증(F-2) — 🟡 잔존 | — | CSP 헤더는 통과 확인, 캔버스 클릭만 수동(헤드리스 불가) |
@@ -307,3 +328,4 @@ curl -s -o /dev/null -w "predict(nokey) %{http_code}\n" -X POST "$BE/api/v1/pred
 - [CORS in FastAPI (CORSMiddleware) — FastAPI 공식](https://fastapi.tiangolo.com/tutorial/cors/)
 - [Configure Azure Static Web Apps (`staticwebapp.config.json`, CSP) — Microsoft Learn](https://learn.microsoft.com/en-us/azure/static-web-apps/configuration)
 - [Mixed content / `connect-src` (CSP) — MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/connect-src)
+- [Application Insights JavaScript SDK configuration — Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk-configuration) — §1-E `enableUnhandledPromiseRejectionTracking`(기본 `false`)·`addTelemetryInitializer` 근거
